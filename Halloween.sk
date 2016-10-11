@@ -1,0 +1,107 @@
+#==============================#
+#		Halloween Fun		by Jake/Simba <3	#
+#==============================#
+
+options:
+	BeginDate: 9							# must be at least this date
+	EndDate: 31							# must be at most this date
+	BlacklistWorlds: N/A					# worlds in which this script has no effect
+	
+	ZombiePlayers: true					# should zombies have a chance to spawn with the head of a random online player?
+	ZombiePlayerChance: 25			# chance of a zombie spawning with an online player's head
+	
+	PumpkinMobs: true					# mobs that render equipment will spawn with jack-o-lanterns/pumpkins on their heads
+	PumpkinMobChance: 100			# chance of a pumpkin mob spawning
+	
+	MoreWitches: true					# whether some mobs should be replaced by witches
+	WitchReplaceTargets: zombie		# what mobs the witch should replace on spawn
+	WitchReplaceChance: 25			# percent chance that the witch should replace
+	MagicResistantWitches: true		# makes witches immune to potion, poison, or magic damage
+	
+	BlindnessSkeletons: true			# skeletons that spawn at or below BlindnessSkeletonsYLevel will shoot blindness arrows (chance based on depth)
+	BlindnessSkeletonsYLevel: 24		# the depth that blindness shooting skeletons can begin spawning
+	
+	ExtraInvisibleSpiders: true			# should more spiders spawn with invisibility?
+	InvisibleSpiderChance: 20			# what percent of spiders should spawn with invisibility
+	
+	ExtraSpiderJockeys: true			# should more spiders spawn with skeletons on their backs?
+	ExtraJockeyChance: 7.5			# the chance of a spider to spawn a jockey
+
+
+
+on spawn:
+	set {_go} to false
+	loop players in radius 10 of event-entity:
+		loop-player's name is "Mr_Simba"
+		set {_go} to true
+		stop loop
+	{_go} is true
+		
+	#= Ensure the world isn't blacklisted to halloween stuff
+	"{@BlacklistWorlds}" doesn't contain "%event-world%"
+	
+	#= Split date and see if it falls between begin and end dates 
+	set {_now} to "%now%"
+	set {_now::*} to {_now} parsed as "%number%/%number%/%number% %text%"
+	
+	{_now::1} is 10
+	{_now::2} >= {@BeginDate}
+	{_now::2} <= {@EndDate}
+	
+	
+	#= Equip zombies with skulls
+	if {@ZombiePlayers} is true:
+		event-entity is a zombie
+		chance of {@ZombiePlayerChance}%:
+			set {_p} to random element of players
+			set event-entity's helmet to {_p}'s skull
+			wait 1 tick
+			set event-entity's helmet to event-entity's helmet # helps make sure it actually renders
+	
+	#= Equip pumpkins
+	if {@PumpkinMobs} is true:
+		event-entity is a zombie, skeleton or zombie pigman
+		event-entity's helmet isn't a player skull
+		chance of {@PumpkinMobChance}%:
+			set event-entity's helmet to pumpkin or jack-o-lantern
+			
+	#= Witch mob replacement
+	if {@MoreWitches} is true:
+		event-entity isn't a witch		# don't want an infinite loop
+		set {_mobs::*} to {@WitchReplaceTargets}
+		{_mobs::*} contains type of event-entity
+		chance of {@WitchReplaceChance}%:
+			cancel event
+			spawn a witch at the event-location
+			stop
+	
+	#= Blindness skeletons
+	if {@BlindnessSkeletons} is true:
+		event-entity is a skeleton
+		event-entity's y-location <= {@BlindnessSkeletonsYLevel}
+		
+		# Create a scalar based on distance below BlindnessSkeletonsYLevel
+		set {_chance} to (({@BlindnessSkeletonsYLevel} - event-entity's y-location)/{@BlindnessSkeletonsYLevel})
+		chance of {_chance}:
+			wait 1 tick
+			set event-entity's offhand tool to tipped arrow with nbt "{CustomPotionEffects:[{Id:15,Amplifier:0,Duration:100}]}"
+
+	#= Invisible spiders
+	if event-entity is a spider:
+		if {@ExtraInvisibleSpiders} is true:
+			set {_invis} to false
+			chance of {@InvisibleSpiderChance}%:
+				apply invisibility to the event-entity for 100 days
+				set {_invis} to true
+		if {@ExtraSpiderJockeys} is true:
+			chance of {@ExtraJockeyChance}%:
+				spawn a skeleton at the event-entity
+				make the last spawned skeleton ride the event-entity
+				if {_invis} is true:
+					apply invisibility to the last spawned skeleton for 100 days
+
+
+on damage of witch:
+	{@MagicResistantWitches} is true
+	"%damage cause%" is "poison", "potion" or "magic"
+	cancel event
