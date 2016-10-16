@@ -1,0 +1,171 @@
+on chunk generate:
+	"%event-world%" contains "resource"
+	"%event-world%" doesn't contain "nether" or "end"
+
+	set {_chunk} to "%event-chunk%"
+	replace all "(" with "" in {_chunk}
+	replace all ")" with "" in {_chunk}
+	set {_var::*} to {_chunk} parsed as "chunk %number%,%number% of %text%"
+	set {_x} to {_var::1} * 16
+	set {_z} to {_var::2} * 16
+	set {_x} to {_x}-1
+	set {_z} to {_z}-1
+		
+	set {_loc} to location at ({_x} + random integer between 0 and 15), 255, ({_z} + random integer between 0 and 15) in event-world
+	set {_loc} to location of highest solid block at {_loc}
+	set {_session} to new edit session in event-world with limit -1
+	
+	if biome at {_loc} is swampland:
+		chance of 57.5%:
+			grow huge mushroom at {_loc}
+			
+		else if block 1 meter below {_loc} is water:
+			chance of 35%:
+				loop blocks in radius (random integer between 1.5 and 3) of {_loc}:
+					block above loop-block is water
+					loop-block isn't water
+					@noupdate::set loop-block to slime
+		
+		else if block 1 meter below {_loc} is grass:
+			chance of 15%:
+				loop blocks in radius (random number between 1.5 and 3) of {_loc}:
+					loop-block is grass
+					block above loop-block is air, long grass, orchid, brown mushroom, red mushroom or vine
+					@noupdate::set loop-block to farmland
+					@noupdate::set block above loop-block to potato
+					set data value of block above loop-block to 7
+				stop
+			else:
+				block at {_loc} is air, long grass, orchid, brown mushroom, red mushroom or vine
+				@noupdate::set block at {_loc} to fern
+				
+	else if biome at {_loc} is desert or desert hills:
+		if block at location 1 meter below {_loc} is sand:
+			chance of 0.075%:
+				paste schematic "plugins/WorldEdit/schematics/DesertRibcage%random integer between 1 and 2%" at {_loc} using editsession {_session} without air
+			else:
+				chance of 0.25%:
+					@noupdate::set block at {_loc} to floor head
+					add "{Rot:%(random integer between 0 and 15)%}" to nbt of block at {_loc}
+			exit 2 sections
+		if block at location 1 meter below {_loc} is blue stained clay:
+			loop players in event-world:
+				execute console command "execute %loop-player% ~ ~ ~ /summon Zombie %{_loc}'s x loc% %{_loc}'s y loc% %{_loc}'s z loc% {CustomName:""&6&lUndead Pharaoh"",CustomNameVisible:1,IsVillager:0,ZombieType:6,IsBaby:0,ArmorItems:[{id:golden_boots,Count:1,tag:{AttributeModifiers:[{AttributeName:""generic.movementSpeed"",Name:""generic.movementSpeed"",Amount:.10,Operation:1,UUIDLeast:801547,UUIDMost:604701,Slot:""feet""}],Unbreakable:1,display:{Name:""&6&lPharaoh's Sandals"",Lore:[&7Artifact]}}},{id:golden_leggings,Count:1,tag:{Unbreakable:1,display:{Name:""&6&lPharaoh's Leggings"",Lore:[&7Artifact]}}},{id:golden_chestplate,Count:1,tag:{Unbreakable:1,display:{Name:""&6&lPharaoh's Tunic"",Lore:[&7Artifact]}}},{id:golden_helmet,Count:1,tag:{Unbreakable:1,display:{Name:""&6&lPharaoh's Headdress"",Lore:[&7Artifact]}}}],HandItems:[{id:golden_axe,Count:1,tag:{AttributeModifiers:[{AttributeName:""generic.maxHealth"",Name:""generic.maxHealth"",Amount:4,Operation:0,UUIDLeast:375855,UUIDMost:95579,Slot:""mainhand""},{AttributeName:""generic.knockbackResistance"",Name:""generic.knockbackResistance"",Amount:0,Operation:0,UUIDLeast:633089,UUIDMost:713952,Slot:""mainhand""},{AttributeName:""generic.attackDamage"",Name:""generic.attackDamage"",Amount:-.25,Operation:1,UUIDLeast:46792,UUIDMost:707079,Slot:""mainhand""}],Unbreakable:1,display:{Name:""&6&lPharaoh's Flail"",Lore:[""&7Drains your enemies, gives you might."", ""&7Use with crook.""]}}},{id:golden_hoe,Count:1,tag:{AttributeModifiers:[{AttributeName:""generic.knockbackResistance"",Name:""generic.knockbackResistance"",Amount:1,Operation:0,UUIDLeast:605545,UUIDMost:597349,Slot:""offhand""}],Unbreakable:1,display:{Name:""&6&lPharaoh's Crook"",Lore:[""&7Drains your enemies, gives you might."", ""&7Use with flail.""]}}}],ArmorDropChances:[2.0F,2.0F,2.0F,2.0F],HandDropChances:[2.0F,2.0F],Attributes:[{Name:generic.maxHealth,Base:200},{Name:zombie.spawnReinforcements,Base:0.2F},{Name:generic.knockbackResistance,Base:1}],Health:200.0f,PersistenceRequired:1,CanPickUpLoot:1b,LeftHanded:1}"
+				stop
+	
+
+on chunk generate:
+	"%event-world%" contains "nether" and "res"
+	
+	chance of 75%
+	
+	set {_chunk} to "%event-chunk%"
+	replace all "(" with "" in {_chunk}
+	replace all ")" with "" in {_chunk}
+	set {_var::*} to {_chunk} parsed as "chunk %number%,%number% of %text%"
+	set {_x} to {_var::1} * 16
+	set {_z} to {_var::2} * 16
+	set {_x} to {_x}-1
+	set {_z} to {_z}-1
+	
+	add random integer between 0 and 15 to {_x}
+	add random integer between 0 and 15 to {_z}
+	set {_loc} to location at {_x}, 126, {_z} in event-world
+	
+	set {_corner1} to location at {_x}, 48, {_z} in event-world
+	set {_corner1tester} to location at ({_x} + 15), 48, ({_z} + 15) in event-world
+	set {_corner2} to location at ({_x} + 15), 82, ({_z} + 15) in event-world
+	
+	set {_foundAir} to false
+	set {_numAir} to 0
+	loop 127 times:
+		if block at {_loc}'s location is air:
+			set {_foundAir} to true
+		else:
+			{_foundAir} is true
+			stop loop
+			
+		subtract 1 from {_loc}'s y location
+		
+	set {_session} to new edit session in event-world with limit -1
+
+	if block at {_loc} is lava:
+		chance of 6%:
+			{_loc}'s y location < 32
+			loop 30 times:
+				subtract 1 from {_loc}'s y location
+				block at {_loc} isn't lava
+				paste schematic "plugins/WorldEdit/schematics/MagmaStalagmite" at location 1 meter above {_loc} using editsession {_session} without air
+				
+		chance of 50%:
+			spawn a magma cube at {_loc}
+		stop
+	
+	{_loc}'s y location >= 30
+	
+	if block at {_loc} is soul sand:
+		set {_whatDo} to 1
+	else:
+		set {_whatDo} to 2
+		chance of 0.5%:
+			set {_whatDo} to 3
+		else:
+			{_loc}'s y location <= 45
+			chance of 10%
+			set {_whatDo} to 4
+	
+	if {_whatDo} is 1:
+		set {_h} to height of schem "plugins/WorldEdit/schematics/BoneSpine1.schematic"
+		
+		loop {_h} times:
+			if block loop-number meters above {_loc}'s location isn't air:
+				stop
+				
+		paste schematic "plugins/WorldEdit/schematics/BoneSpine1" at location 1 meter above {_loc} using editsession {_session} without air
+		
+	else if {_whatDo} is 2:
+		chance of 80%
+		block at {_loc} is netherrack, nether quartz ore or gravel
+		set {_m} to "%block at {_loc}'s location%"
+		@noupdate::set block at {_loc} to mycelium
+		wait 1 tick
+		if {_loc}'s y location >= 80:
+			grow huge brown mushroom at the location 1 meter above {_loc}
+		else if {_loc}'s y location <= 55:
+			chance of 5%:
+				paste schematic "plugins/WorldEdit/schematics/WartShroom" at location 1 meter above {_loc} using editsession {_session} without air
+			else:
+				grow huge red mushroom at the location 1 meter above {_loc}
+		else:
+			chance of 4%
+			set {_size} to random integer between 2 and 5
+			loop blocks in radius {_size} of {_loc}:
+				loop-block is air
+				block below loop-block is netherrack
+				if {_loc}'s y location < 70:
+					@noupdate::set loop-block to red mushroom
+				else:
+					@noupdate::set loop-block to brown mushroom
+			loop blocks in radius ({_size} - 0.5) of {_loc}:
+				loop-block is red mushroom or brown mushroom
+				@noupdate::set loop-block to air
+		wait 1 tick
+		@noupdate::set block at {_loc} to "%{_m}%" parsed as a material
+		
+	else if {_whatDo} is 3:
+		spawn a skeleton horse at location 1 meter above {_loc}
+		set {_s} to the last spawned entity
+		add "{Age:0, Tame:1, SaddleItem:{id:saddle,Count:1}}" to nbt of last spawned entity
+		spawn a skeleton at {_loc}
+		set last spawned skeleton's tool to bow of flame 1
+		add "{PersistenceRequired:1}" to nbt of last spawned skeleton
+		make the last spawned skeleton ride {_s}
+		
+	else if {_whatDo} is 4:
+		loop blocks in radius 5 of {_loc}:
+			loop-block is netherrack or nether quartz ore
+			@noupdate::set loop-block to magma block
+		loop blocks in radius 4 of {_loc}:
+			loop-block is magma block
+			block 1 meter below loop-block isn't air
+			@noupdate::set loop-block to lava
