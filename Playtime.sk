@@ -1,0 +1,142 @@
+function playtimeParse(numUse: number) :: text:		
+	set {_days} to floor({_numUse}/86400)
+	if {_days} > 0:
+		if {_days} > 1:
+			set {_dayStr} to "%{_days}% days "
+		else:
+			set {_dayStr} to "%{_days}% day "
+	else:
+		set {_dayStr} to ""
+	
+	set {_hours} to floor(({_numUse} mod 86400)/3600)
+	if {_hours} > 0:
+		if {_hours} > 1:
+			set {_hourStr} to "%{_hours}% hours "
+		else:
+			set {_hourStr} to "%{_hours}% hour "
+	else:
+		set {_hourStr} to ""
+	
+	set {_mins} to floor(({_numUse} mod 3600)/60)
+	if {_mins} > 0:
+		if {_mins} > 1:
+			set {_minStr} to "%{_mins}% minutes "
+		else:
+			set {_minStr} to "%{_mins}% minute "
+	else:
+		set {_minStr} to ""
+	
+	set {_secs} to ({_numUse} mod 60)
+	if {_secs} > 0:
+		if {_secs} > 1:
+			set {_secStr} to "%{_secs}% seconds"
+		else:
+			set {_secStr} to "%{_secs}% second"
+	else:
+		set {_secStr} to ""
+	
+	return "%{_dayStr}%%{_hourStr}%%{_minStr}%%{_secStr}%"
+	
+
+command /playtime <text="%player%"> [<text="1">]:
+	executable by: players and console
+	trigger:
+		if argument 1 is "check":
+			player has permission "skript.admin"
+			send "&6The following players have recently hit 20 hours of playtime: &c%{fullday::*}%"
+			stop
+		else if argument 1 is "clear":
+			if player has permission "skript.admin":
+				clear {fullday::*}
+				send "&6Cleared 20 hour playtime list."
+			stop
+		else if argument 1 is "rank":
+			if argument 2 is "1":
+				set {_arg} to player
+			else:
+				set {_arg} to ("%arg 2%" parsed as an offline player)
+			set {_argUUID} to {_arg}'s uuid
+		
+			set {_topList::*} to sorted {playtime::*} from highest to lowest with output "@index"
+			loop {_topList::*}:
+				"%loop-value%" is "%{_argUUID}%"
+				if "%{_argUUID}%" is "%player's uuid%":
+					send "&6Your playtime postion: &c##%loop-index%"
+				else:
+					send "&6%{_arg}%'s playtime postion: &c##%loop-index%"
+				stop
+			send "&cAn error occurred finding the playtime rank. Tell an admin!"
+			stop
+		else if argument 1 is "top":
+			set {_pg} to arg-2 parsed as an integer
+			if {_pg} isn't set:
+				set {_pg} to 1
+				
+			set {_start} to (({_pg} - 1)*10)+1
+			set {_end} to {_start} + 9
+			
+			set {_topList::*} to sorted {playtime::*} from highest to lowest with output "@index"
+			send "&c---= &6Highest Playtimes &c==---"
+			set {_num} to 0
+			loop {_topList::*}:
+				add 1 to {_num}
+				{_num} >= {_start}
+				send "&8[&7%loop-index%&8] &6%{name.%loop-value%}%: &c%playtimeParse({playtime::%loop-value%})%"
+				if {_num} >= {_end}:
+					stop
+				if {_num} >= size of {playtime::*}:
+					stop
+			stop
+			
+		set {_arg} to ("%arg 1%" parsed as an offline player)
+		set {_argUUID} to {_arg}'s uuid
+
+		if {_arg} isn't online:
+			if player doesn't have permission "skript.mod":
+				send "&4Player not found."
+				stop
+				
+		else if "%vanish state of {_arg}%" is "true":
+			if player doesn't have permission "skript.mod":
+				send "&4Player not found."
+				stop
+			
+		set {_numUse} to {playtime::%{_argUUID}%}
+
+		if "%{_numUse}%" is "<none>":
+			send "&cThe player '%argument 1%' has never joined this server."
+			stop
+		
+		if command sender is console:
+			send "&6%{_arg}%'s playtime:&c %playtimeParse({_numUse})%" to console
+		else if {_arg} is player:
+			send "&6Your playtime:&c %playtimeParse({_numUse})%" to the player
+		else:
+			send "&6%{_arg}%'s playtime:&c %playtimeParse({_numUse})%" to the player
+			
+every 1 second:
+	loop players:
+		if loop-player is afk:
+			wait 0 ticks
+		else:
+			add 1 to {playtime::%loop-player's uuid%}
+		
+		if {playtime::%loop-player's uuid%} is 72000:
+			if loop-player has permission "skript.member":
+				stop
+			add "%loop-player%" to {fullday::*}
+
+on login:
+	if {playtime::%player's uuid%} isn't set:
+		set {playtime::%player's uuid%} to {playtime.%player's uuid%}
+
+on command "/rank":
+	set {_args::*} to arguments split at " "
+	remove all {_args::1} from {fullday::*}
+
+on command "/pex":
+	set {_args::*} to arguments split at " "
+	{_args::1} is "user"
+	{_args::3} is "group"
+	{_args::4} is "set"
+	remove all {_args::2} from {fullday::*}
