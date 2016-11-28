@@ -34,12 +34,10 @@ function bonemealEffect(p: player, l: location):
 	particle({_p}, "happyVillager", {_l}, 10, 0.15, 0.15, 0.15, 0)
 	playsound({_p}, "block.enchantment_table.use", "block", {_l}, 0.125, 2)
 
-function getFreeSpace(p: player, countArmorSlots: boolean = false) :: integer:
+function getFreeSpace(p: player, countArmorSlots: boolean = false) :: number:
 	set {_space} to amount of air in {_p}'s inventory
-	
-	if {_countArmorSlots} is true:
-		return {_space}
-	else:		
+
+	if {_countArmorSlots} is false:		
 		if "%{_p}'s helmet%" is "<none>":
 			subtract 1 from {_space}
 		if "%{_p}'s chestplate%" is "<none>":
@@ -48,7 +46,8 @@ function getFreeSpace(p: player, countArmorSlots: boolean = false) :: integer:
 			subtract 1 from {_space}
 		if "%{_p}'s boots%" is "<none>":
 			subtract 1 from {_space}
-		return {_space}
+	
+	return {_space}
 
 #function logBlockBreak(p: player, loc: location, typeBefore: integer, dataBefore: integer):
 #	set {_test} to return of method "queueBlockBreak" with params "%{_p}'s uuid%", {_loc}, {_typeBefore} and {_dataBefore} in class "de.diddiz.LogBlock.Consumer"
