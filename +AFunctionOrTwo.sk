@@ -1,0 +1,58 @@
+function getUUID(e: entity) :: text:
+	return "%tag ""UUIDLeast"" of nbt of {_e}%%tag ""UUIDMost"" of nbt of {_e}%"
+	
+function locStringVar(l: location, xOff: number = 0, yOff: number = 0, zOff: number = 0) :: string:
+	return "%{_l}'s x location + {_xOff}% %{_l}'s y location + {_yOff}% %{_l}'s z location + {_zOff}%"
+
+function locStringEntity(e: entity, xOff: number = 0, yOff: number = 0, zOff: number = 0) :: string:
+	return "%{_e}'s x location + {_xOff}% %{_e}'s y location + {_yOff}% %{_e}'s z location + {_zOff}%"
+	
+function playsound(p: player, sound: text, category: text, l: location, vol: number = 1, pitch: number = 1):
+	execute console command "execute %{_p}% ~ ~ ~ /playsound %{_sound}% %{_category}% @a[r=100] %locStringVar({_l})% %{_vol}% %{_pitch}%"
+
+function particle(p: player, particle: text, l: location, count: integer = 25, xd: number = 0, yd: number = 0, zd: number = 0, speed: number = 0.05, mode: text = "normal", selector: text = "@a", params: text = "0 0"):
+	execute console command "execute %{_p}% ~ ~ ~ /particle %{_particle}% %locStringVar({_l})% %{_xd}% %{_yd}% %{_zd}% %{_speed}% %{_count}% %{_mode}% %{_selector}% %{_params}%"
+	
+function isASurvivalWorld(w: world) :: boolean:
+	if "%{_w}%" contains "world" or "resource":
+		return true
+	else:
+		return false
+
+function clamp(n: number, min: number, max: number) :: number:
+	if {_n} < {_min}:
+		set {_n} to {_min}
+	else if {_n} > {_max}:
+		set {_n} to {_max}
+		
+	return {_n}
+	
+function doNothing(n: number = 0):
+	wait 0 ticks
+	
+function bonemealEffect(p: player, l: location):
+	particle({_p}, "happyVillager", {_l}, 10, 0.15, 0.15, 0.15, 0)
+	playsound({_p}, "block.enchantment_table.use", "block", {_l}, 0.125, 2)
+
+function getFreeSpace(p: player, countArmorSlots: boolean = false) :: integer:
+	set {_space} to amount of air in {_p}'s inventory
+	
+	if {_countArmorSlots} is true:
+		return {_space}
+	else:		
+		if "%{_p}'s helmet%" is "<none>":
+			subtract 1 from {_space}
+		if "%{_p}'s chestplate%" is "<none>":
+			subtract 1 from {_space}
+		if "%{_p}'s leggings%" is "<none>":
+			subtract 1 from {_space}
+		if "%{_p}'s boots%" is "<none>":
+			subtract 1 from {_space}
+		return {_space}
+
+#function logBlockBreak(p: player, loc: location, typeBefore: integer, dataBefore: integer):
+#	set {_test} to return of method "queueBlockBreak" with params "%{_p}'s uuid%", {_loc}, {_typeBefore} and {_dataBefore} in class "de.diddiz.LogBlock.Consumer"
+#	send "%{_tesT}%" to {_p}
+#	
+#function logKill(a: entity, v: entity):
+#	call method "queueKill" with params {_a} and {_v} in class "de.diddiz.LogBlock.Consumer"
