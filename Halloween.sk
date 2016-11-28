@@ -3,12 +3,12 @@
 #==============================#
 
 options:
-	BeginDate: 9							# must be at least this date
+	BeginDate: 18							# must be at least this date
 	EndDate: 31							# must be at most this date
-	BlacklistWorlds: N/A					# worlds in which this script has no effect
+	BlacklistWorlds: Soulthief, spawn# worlds in which this script has no effect
 	
 	ZombiePlayers: true					# should zombies have a chance to spawn with the head of a random online player?
-	ZombiePlayerChance: 25			# chance of a zombie spawning with an online player's head
+	ZombiePlayerChance: 2.5			# chance of a zombie spawning with an online player's head
 	
 	PumpkinMobs: true					# mobs that render equipment will spawn with jack-o-lanterns/pumpkins on their heads
 	PumpkinMobChance: 100			# chance of a pumpkin mob spawning
@@ -26,19 +26,18 @@ options:
 	
 	ExtraSpiderJockeys: true			# should more spiders spawn with skeletons on their backs?
 	ExtraJockeyChance: 7.5			# the chance of a spider to spawn a jockey
+	
+	BloodyMobs: true						# should mobs explode into blood when they die?
 
 
 
 on spawn:
-	set {_go} to false
-	loop players in radius 10 of event-entity:
-		loop-player's name is "Mr_Simba"
-		set {_go} to true
-		stop loop
-	{_go} is true
 		
 	#= Ensure the world isn't blacklisted to halloween stuff
 	"{@BlacklistWorlds}" doesn't contain "%event-world%"
+	
+	#= Ensure the mob didn't spawn from a spawner
+	"%spawn reason%" isn't "SPAWNER"
 	
 	#= Split date and see if it falls between begin and end dates 
 	set {_now} to "%now%"
@@ -101,6 +100,7 @@ on spawn:
 					apply invisibility to the last spawned skeleton for 100 days
 
 
+#= Poison/magic resistance witches
 on damage of witch:
 	{@MagicResistantWitches} is true
 	"%damage cause%" is "poison", "potion" or "magic"
