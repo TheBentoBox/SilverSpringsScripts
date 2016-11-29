@@ -1,0 +1,105 @@
+command /a <text>:
+	permission: adminchat.*
+	trigger:
+		if "%{ac.disable.%player's uuid%}%" is "true":
+			send "&cYou just spoke in AdminChat, but you have it disabled. Type '/atoggle' to enable it."
+			
+		loop players:
+			loop-player has permission "adminchat.*"
+			"%{ac.disable.%loop-player's uuid%}%" is "false" or "<none>"
+			
+			set {_b} to "%{ac.brackets.%loop-player's uuid%}%"
+			set {_n} to "%{ac.name.%loop-player's uuid%}%"
+			set {_m} to "%{ac.message.%loop-player's uuid%}%"
+			if "%{_b}%" is "<none>":
+				set {_b} to "&4"
+			if "%{_n}%" is "<none>":
+				set {_n} to "&c"
+			if "%{_m}%" is "<none>":
+				set {_m} to "&e"
+			if command sender is console:
+				send "%{_b}%-> [%{_n}%CONSOLE%{_b}%] %{_m}%%colored text-argument%" to loop-player
+				if {_sentToConsole} isn't set:
+					send "%{_b}%-> [%{_n}%CONSOLE%{_b}%] %{_m}%%colored text-argument%" to console
+					set {_sentToConsole} to true
+			else:
+				send "%{_b}%-> [%{_n}%%player%%{_b}%] %{_m}%%colored text-argument%" to loop-player
+				
+on chat:
+	player has permission "skript.mod"
+	player has permission "adminchat.*"
+	{ac.toggle.%player's uuid%} is true
+	cancel event
+	make player execute "a %message%"
+				
+command /atoggle:
+	permission: adminchat.*
+	trigger:
+		set {_b} to "%{ac.brackets.%player's uuid%}%"
+		set {_n} to "%{ac.name.%player's uuid%}%"
+		set {_m} to "%{ac.message.%player's uuid%}%"
+		"%{_b}%" is "<none>":
+			set {_b} to "&4"
+		"%{_n}%" is "<none>":
+			set {_n} to "&c"
+		"%{_m}%" is "<none>":
+			set {_m} to "&e"
+		if {ac.toggle.%player's uuid%} isn't set:
+			set {ac.toggle.%player's uuid%} to true
+		else:
+			set {ac.toggle.%player's uuid%} to !{ac.toggle.%player's uuid%}
+			
+		send "%{_b}%[%{_n}%AdminChat Only%{_b}%] %{_m}%%{ac.toggle.%player's uuid%}%"
+				
+command /adisable:
+	permission: adminchat.*
+	trigger:
+		set {_b} to "%{ac.brackets.%player's uuid%}%"
+		set {_n} to "%{ac.name.%player's uuid%}%"
+		set {_m} to "%{ac.message.%player's uuid%}%"
+		"%{_b}%" is "<none>":
+			set {_b} to "&4"
+		"%{_n}%" is "<none>":
+			set {_n} to "&c"
+		"%{_m}%" is "<none>":
+			set {_m} to "&e"
+		if {ac.disable.%player's uuid%} isn't set:
+			set {ac.disable.%player's uuid%} to true
+		else:
+			set {ac.disable.%player's uuid%} to !{ac.disable.%player's uuid%}
+			
+		send "%{_b}%[%{_n}%AdminChat Disabled%{_b}%] %{_m}%%{ac.disable.%player's uuid%}%"
+			
+command /acustomize [<text>] [<text>]:
+	permission: adminchat.*
+	trigger:
+		if arg-1 isn't set:
+			send "&6&lCustomize AdminChat with the following arguments:"
+			send "&6Note: &cYou must include the & in the color code argument!"
+			send "&6/acustomize brackets <color code>&c to change the []'s and ->"
+			send "&6/acustomize name <color code>&c to change the speaker's name"
+			send "&6/acustomize message <color code>&c to change the messages"
+			send "&6/acustomize default&c to change back to the default colors"
+			stop
+		else if arg-1 is "default":
+			delete {ac.brackets.%player's uuid%}
+			delete {ac.name.%player's uuid%}
+			delete {ac.message.%player's uuid%}
+			send "&6Reset your AdminChat color codes!"
+			stop
+		
+		if arg-2 isn't set:
+			send "&cPlease specify a color code."
+			stop
+
+		set {_arg} to "%arg-2%"
+		replace all "&" in {_arg} with "§"
+		if arg-1 is "brackets":
+			set {ac.brackets.%player's uuid%} to "%{_arg}%"
+			send "%{ac.brackets.%player's uuid%}%Updated your AdminChat brackets color."
+		else if arg-1 is "name":
+			set {ac.name.%player's uuid%} to "%{_arg}%"
+			send "%{ac.name.%player's uuid%}%Updated your AdminChat name color."
+		else if arg-1 is "message":
+			set {ac.message.%player's uuid%} to "%{_arg}%"
+			send "%{ac.message.%player's uuid%}%Updated your AdminChat message color."
