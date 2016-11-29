@@ -1,0 +1,36 @@
+options:
+	ServerPrefix: &8&l[&7SSS&8&l] &3
+
+on script load:
+	delete {timeUntilRestart}
+	loop worlds:
+		execute console command "mvgamerule logAdminCommands false %loop-value%"
+		execute console command "mvgamerule sendCommandFeedback false %loop-value%"
+		execute console command "mvgamerule commandBlockOutput false %loop-value%"
+		execute console command "mvmodify set difficulty hard %loop-value%"
+		
+every minute:
+	if "%now%" contains "11:55" or "2:55 AM":
+		broadcast "{@ServerPrefix}The server will restart in 5 minutes."
+		set {timeUntilRestart} to 5 minutes
+	else if "%now%" contains "11:59" or "2:59 AM":
+		broadcast "{@ServerPrefix}The server will restart in 1 minute."
+		set {timeUntilRestart} to 1 minute
+		wait 50 seconds
+		broadcast "{@ServerPrefix} 10 seconds until restart, stop all crafting and similar actions!"
+		wait 7 seconds
+		loop 3 times:
+			broadcast "{@ServerPrefix} Restart in %4 - loop-number%..."
+			wait 1 second
+		execute console command "/restart"
+
+on command:
+	command is "ma" or "mobarena"
+	first character of arguments is "j"
+
+	if {timeUntilRestart} is set:
+		cancel event
+		send "&cThe server is restarting soon; please wait to join arenas until after the restart." to the player
+	else if getFreeSpace(player) < 10:
+		cancel event
+		send "&cYou need at least 10 free inventory slots to join the Mob Arena (to hold the potential prizes afterwards!)" to the player

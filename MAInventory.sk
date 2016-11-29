@@ -1,7 +1,0 @@
-on command:
-	command is "ma" or "mobarena"
-	first character of arguments is "j"
-	
-	if getFreeSpace(player) < 10:
-		cancel event
-		send "&cYou need at least 10 free inventory slots to join the Mob Arena (to hold the potential prizes afterwards!)" to the player
