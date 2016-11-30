@@ -1,0 +1,98 @@
+#	Tag API
+# Allows you to store data on an entity via the vanilla scoreboard system. This means stored tags are unique per-entity 
+# and persist across server restarts, and are not version dependent. They are a great way to store long term data on 
+# entities without needing to use Skript variables. Think of them like permanent metadata.
+
+# !IMPORTANT!: 	Entities have a limit of 1024 tags allowed on them. This is a hard limit by Mojang, not me. You'll probably
+# 								never hit this limit, but be aware of it. You can check the number of tags on an entity with `size of getTags(entity)`.
+
+
+
+# @desc:			Adds a tag to an entity. Note an entity may not have more than 1024 tags.
+# @params:	entityToTag: which entitiy to add the tag to
+#						tag: which tag to add to entityToTag
+function addTag(entityToTag: entity, tag: text):
+	set {_t} to "%tag ""Tags"" of nbt of {_entityToTag}%"
+	if "%{_t}%" is "<none>":
+		set {_t} to "[]"
+	set {_l} to -1 + length of {_t}
+	set {_t} to first {_l} characters of "%{_t}%"
+	add "{Tags:%{_t}%,%{_tag}%]}" to nbt of {_entityToTag}
+
+
+# @desc:			Removes a tag from an entity.
+# @params:	entityToUntag: which entity to remove the tag from
+#						tag: which tag to remove from entityToUntag
+function removeTag(entityToUntag: entity, tag: text):
+	set {_t} to "%tag ""Tags"" of nbt of {_entityToUntag}%"
+	replace all ":""%{_tag}%""," and ":""%{_tag}%""" in {_t} with ""
+	if length of {_t} <= 3:
+		add "{Tags:[]}" to nbt of {_entityToUntag}
+	else:
+		add "{Tags:%{_t}%}" to nbt of {_entityToUntag}
+
+
+# @desc: 		Gets a list of all of the scoreboard tags stored on a specific entity
+# @params: 	entityToCheck: the entity whose scoreboard tags should be retrieved
+# @returns: 	A Skript list of all of the scoreboard tags on the entity as texts
+function getTags(entityToCheck: entity) :: texts:
+	set {_tags} to "%tag ""Tags"" of nbt of {_entityToCheck}%"
+	set {_tags::*} to {_tags} split at ""","
+	loop {_tags::*}:
+		set {_val} to loop-value
+		replace all "[", "]" and """" in {_val} with ""
+		set {_valSplit::*} to {_val} parsed as "%number%:%text%"
+		add {_valSplit::2} to {_tagsFixed::*}
+	return {_tagsFixed::*}
+
+	
+# @desc:			Tells you whether or not the provided entity has the provided tag. This will not return false 
+#						positives for tags that contain each other, e.g. checking for "Test" will return false even if 
+#						the entity has the tag "Test2" (as you'd expect).
+# @params:	entityToCheck: which entitiy to check for tags
+#						tag: which tag to check entityToCheck for
+# @returns:		True if entityToCheck has the tag, false otherwise.
+function hasTag(entityToCheck: entity, tag: text) :: boolean:
+	if "%tag ""Tags"" of nbt of {_entityToCheck}%" contains ":""%{_tag}%""":
+		return true
+	else:
+		return false
+
+	
+# @desc:			Tells you whether or not the provided entity has the provided key=value tag. This will not return false 
+#						positives for tags that contain each other, e.g. checking for "Test" will return false even if  the entity has
+#						the keyed tag "Test2" (as you'd expect). It WILL break if you use an = in tags/keys. I'd recommend not
+#						doing that in general.
+# @params:	entityToCheck: which entitiy to check for tags
+#						tag: which key tag to check entityToCheck for
+# @returns:		True if entityToCheck has the tag, false otherwise.
+function hasKeyValueTag(entityToCheck: entity, tag: text) :: boolean:
+	if "%tag ""Tags"" of nbt of {_entityToCheck}%" contains ":""%{_tag}%=":
+		return true
+	else:
+		return false
+
+
+# @desc: 		Adds a tag to the entity as "key=value". Just for the sake of convenience, so you can treat an entity's tags
+#						like a Skript list (with an index and value), or as a map (for you programmers out there). Meant to be used with
+#						getTagKeyValue below. Note it just reroutes the stuff to an addTag, but it's nice to have this as a convenience 
+#						function to go well with getTagKeyValue.
+# @params:	entityToTag: which entitiy to add the key=value tag to
+#						key: the 'key' of the tag to add to entityToTag
+#						value: the 'value' of the tag to add to entityToTag
+function setKeyValueTag(entityToTag: entity, key: text, value: text):
+	addTag({_entityToTag}, "%{_key}%=%{_value}%")
+
+
+# @desc: 		Gets the value of a tag which is stored as tag=value. e.g. You can store a tag on an entity
+#						as "owner=%player's uuid%", and running getTagValue("owner") will return the %player's uuid% part.
+# @params: 	entityToCheck: the entity whose scoreboard tag value should be retrieved
+#						
+# @returns: 	A Skript list of all of the scoreboard tags on the entity as texts
+function getKeyValueTag(entityToCheck: entity, key: text) :: text:
+	set {_tags::*} to getTags({_entityToCheck})
+	loop {_tags::*}:
+		set {_valSplit::*} to loop-value split at "="
+		"%{_valSplit::1}%" is "%{_key}%"
+		return "%{_valSplit::2}%"
+	return "<none>"
