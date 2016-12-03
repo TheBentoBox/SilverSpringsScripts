@@ -7,8 +7,8 @@ function locStringVar(l: location, xOff: number = 0, yOff: number = 0, zOff: num
 function locStringEntity(e: entity, xOff: number = 0, yOff: number = 0, zOff: number = 0) :: string:
 	return "%{_e}'s x location + {_xOff}% %{_e}'s y location + {_yOff}% %{_e}'s z location + {_zOff}%"
 	
-function playsound(p: player, sound: text, category: text, l: location, vol: number = 1, pitch: number = 1):
-	execute console command "execute %{_p}% ~ ~ ~ /playsound %{_sound}% %{_category}% @a[r=100] %locStringVar({_l})% %{_vol}% %{_pitch}%"
+function playsound(p: player, sound: text, category: text, l: location, vol: number = 1, pitch: number = 1, selector: text = "@a[r=100]"):
+	execute console command "execute %{_p}% ~ ~ ~ /playsound %{_sound}% %{_category}% %{_selector}% %locStringVar({_l})% %{_vol}% %{_pitch}%"
 
 function particle(p: player, particle: text, l: location, count: integer = 25, xd: number = 0, yd: number = 0, zd: number = 0, speed: number = 0.05, mode: text = "normal", selector: text = "@a", params: text = "0 0"):
 	execute console command "execute %{_p}% ~ ~ ~ /particle %{_particle}% %locStringVar({_l})% %{_xd}% %{_yd}% %{_zd}% %{_speed}% %{_count}% %{_mode}% %{_selector}% %{_params}%"
