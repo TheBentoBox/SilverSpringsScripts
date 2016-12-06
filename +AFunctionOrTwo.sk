@@ -1,24 +1,83 @@
+# @desc:			Creates  a string based on the entity's UUIDLeast and UUIDMost tags. Should be unique to each entity.
+# @params: 	e: the entity to get the UUID string for
+# @returns:		The string of the combined UUIDLeast and UUIDMost tags
 function getUUID(e: entity) :: text:
 	return "%tag ""UUIDLeast"" of nbt of {_e}%%tag ""UUIDMost"" of nbt of {_e}%"
-	
-function locStringVar(l: location, xOff: number = 0, yOff: number = 0, zOff: number = 0) :: string:
-	return "%{_l}'s x location + {_xOff}% %{_l}'s y location + {_yOff}% %{_l}'s z location + {_zOff}%"
 
+# @desc:			Creates a string representing the components of a location for use in console commands.
+# @params:	loc: The location to create a string for.
+#						xOff: The offset to apply to loc's x coordinate. Optional. Defaults to 0.
+#						yOff: The offset to apply to loc's y coordinate. Optional. Defaults to 0.
+#						zOff: The offset to apply to loc's z coordinate. Optional. Defaults to 0.
+# @returns:		The string representing the three components of the location with the offset applied.
+function locStringVar(loc: location, xOff: number = 0, yOff: number = 0, zOff: number = 0) :: string:
+	return "%{_loc}'s x location + {_xOff}% %{_loc}'s y location + {_yOff}% %{_loc}'s z location + {_zOff}%"
+
+# @desc:			Creates a string representing the components of an entity's location for use in console commands.
+# @params:	See locStringVar.
+# @returns:		The string representing the three components of the entity's location with the offset applied.
 function locStringEntity(e: entity, xOff: number = 0, yOff: number = 0, zOff: number = 0) :: string:
-	return "%{_e}'s x location + {_xOff}% %{_e}'s y location + {_yOff}% %{_e}'s z location + {_zOff}%"
-	
-function playsound(p: player, sound: text, category: text, l: location, vol: number = 1, pitch: number = 1, selector: text = "@a[r=100]"):
-	execute console command "execute %{_p}% ~ ~ ~ /playsound %{_sound}% %{_category}% %{_selector}% %locStringVar({_l})% %{_vol}% %{_pitch}%"
+	return locStringVar({_e}'s location, {_xOff}, {_yOff}, {_zOff})
 
-function particle(p: player, particle: text, l: location, count: integer = 25, xd: number = 0, yd: number = 0, zd: number = 0, speed: number = 0.05, mode: text = "normal", selector: text = "@a", params: text = "0 0"):
-	execute console command "execute %{_p}% ~ ~ ~ /particle %{_particle}% %locStringVar({_l})% %{_xd}% %{_yd}% %{_zd}% %{_speed}% %{_count}% %{_mode}% %{_selector}% %{_params}%"
-	
+# @desc:			Plays the provided sound name at a location.
+# @params:	sound: The name of the sound file to be played.
+#						category: The category which the sound should draw its volume from.
+#						loc: The location the sound should be played at.
+#						vol: The volume the sound should be played at, should be between 0 and 2. Optional. Defaults to 1.
+#						pitch: The pitch the sound should be played at, should be between 0 and 2. Optional. Defaults to 1.
+#						selector: A command selector text of who should be able to hear the sound. Optional. Defaults to all players within 100 blocks of the play location.
+function playsound(sound: text, category: text, loc: location, vol: number = 1, pitch: number = 1, selector: text = "@a[r=100]"):
+	loop players in world of {_loc}:
+		distance between {_loc} and loop-player <= 100
+		send "%loop-value%" to console
+		execute console command "execute %loop-player% ~ ~ ~ /playsound %{_sound}% %{_category}% %{_selector}% %locStringVar({_loc})% %{_vol}% %{_pitch}%"
+		stop loop
+
+# @desc:			Spawns particles at the provided location.
+# @params:	particle: The name of the particle that should be spawned.
+#						loc: The location the particles should be spawned at.
+#						count: The number of particles to spawn. Optional. Defaults to 25.
+#						xd: The randomization to apply to the x spawn location. Optional. Defaults to 0.
+#						yd: The randomization to apply to the y spawn location. Optional. Defaults to 0.
+#						zd: The randomization to apply to the z spawn location. Optional. Defaults to 0.
+#						speed: The speed the particle should move at. Optional. Defaults to 0.05.
+#						mode: The mode of the particle, either "normal" or "force", which forces clients with low particle settings to render it. Optional. Defaults to "normal".
+#						selector: A command selector text of who should be able to see the particles. Optional. Defaults to all players.
+#						params: The parameters for the particle, only relevent for blockdust, blockcrack, and iconcrack, where it represents the block/icon ID and data value, respectively. Optional. Defaults to "0 0".
+function particle(particle: text, loc: location, count: integer = 25, xd: number = 0, yd: number = 0, zd: number = 0, speed: number = 0.05, mode: text = "normal", selector: text = "@a", params: text = "0 0"):
+	loop players in {_loc}'s world:
+		distance between {_loc} and loop-player <= 100
+		execute console command "execute %loop-player% ~ ~ ~ /particle %{_particle}% %locStringVar({_loc})% %{_xd}% %{_yd}% %{_zd}% %{_speed}% %{_count}% %{_mode}% %{_selector}% %{_params}%"
+		stop loop
+
+# @desc:			Drops the provided item at the provided location with a randomized offset. Can't be picked up and despawns after itemDuration ticks.
+#	@params:	loc: The location to drop the item at.
+#						item: The item type to drop. Provide it as a Skript itemstack.
+# 						randomOffset: The randomization to apply to the spawn location on each axis. Optional. Defaults to 1.5.
+#						itemDuration: How many ticks the items should exist for before despawning. Optional. Defaults to 20 (one second).
+function decorativeItemDrop(loc: location, item: item, randomOffset: number = 1.5, itemDuration: integer = 20):
+	add random number between -1*{_randomOffset} and {_randomOffset} to {_loc}'s x location
+	add random number between -1*{_randomOffset} and {_randomOffset} to {_loc}'s y location
+	add random number between -1*{_randomOffset} and {_randomOffset} to {_loc}'s z location
+	drop {_item} at {_loc}
+	loop dropped items in radius 2 of {_loc}'s location:
+		items within loop-entity is {_item}
+		add "{PickupDelay:32767,Age:%6000 - {_itemDuration}%}" to nbt of loop-entity
+
+# @desc:			Tells you whether or not a world is a normal SSS survival world (one of the main worlds or a resource world).
+# @params:	w: The world to check agains.
+# @returns:		True if the world is a normal survival world, false if otherwise.
 function isASurvivalWorld(w: world) :: boolean:
 	if "%{_w}%" contains "world" or "resource":
 		return true
 	else:
 		return false
 
+# @desc:			Returns a version of the provided number clamped between min and max.
+# @params:	n: The number to clamp.
+# 						min: The minimum to return (if n is less than min, it'll return min).
+# 						max: The maximum to return (if n is greater than min, it'll return max).
+# @returns:		The clamped value of n.
 function clamp(n: number, min: number, max: number) :: number:
 	if {_n} < {_min}:
 		set {_n} to {_min}
@@ -26,14 +85,23 @@ function clamp(n: number, min: number, max: number) :: number:
 		set {_n} to {_max}
 		
 	return {_n}
-	
+
+# @desc:			Executes `wait 0 ticks` to simulate nothing happening, as Skript has no effect for loops like `continue`.
+# @params:	n: Completely useless and unused, but Skript functions require at least one parameter.
 function doNothing(n: number = 0):
 	wait 0 ticks
-	
-function bonemealEffect(p: player, l: location):
-	particle({_p}, "happyVillager", {_l}, 10, 0.15, 0.15, 0.15, 0)
-	playsound({_p}, "block.enchantment_table.use", "block", {_l}, 0.125, 2)
 
+# @desc:			Spawns particles and plays a sound effect at a location, used for custom scripted bonemeal effects.
+# @params:	p: The player to execute the effects from (vanilla commands need to execute relative to a player.)
+#						loc: The location to play the effect at.
+function bonemealEffect(p: player, loc: location):
+	particle("happyVillager", {_loc}, 10, 0.15, 0.15, 0.15, 0)
+	playsound("block.enchantment_table.use", "block", {_loc}, 0.125, 2)
+
+# @desc:			Returns the number of free slots in the player's inventory.
+# @params:	p: The player to check for the number of free spaces.
+#						countArmorSlots: Whether or not open armor slots should count as free slots. Optional. Defaults to false.
+# @returns:		The number of free slots in the player's inventory.
 function getFreeSpace(p: player, countArmorSlots: boolean = false) :: number:
 	set {_space} to amount of air in {_p}'s inventory
 
