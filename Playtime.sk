@@ -57,35 +57,42 @@ command /playtime <text="%player%"> [<text="1">]:
 				set {_arg} to ("%arg 2%" parsed as an offline player)
 			set {_argUUID} to {_arg}'s uuid
 		
-			set {_topList::*} to sorted {playtime::*} from highest to lowest with output "@index"
-			loop {_topList::*}:
-				"%loop-value%" is "%{_argUUID}%"
+			set {_topList} to "%{playtime::*} sorted%"
+			replace all "[" and "]" in {_topList} with ""
+			set {_topList::*} to {_topList} split at ", "
+			
+			set {_s} to size of {_topList::*}
+			loop {_s} times:
+				"%{_topList::%loop-number%}%" is "%{playtime::%{_argUUID}%}%"
 				if "%{_argUUID}%" is "%player's uuid%":
-					send "&6Your playtime postion: &c##%loop-index%"
+					send "&6Your playtime postion: &c##%{_s} - loop-number + 1%"
 				else:
-					send "&6%{_arg}%'s playtime postion: &c##%loop-index%"
+					send "&6%{_arg}%'s playtime postion: &c##%{_s} - loop-number + 1%"
 				stop
 			send "&cAn error occurred finding the playtime rank. Tell an admin!"
 			stop
+
 		else if argument 1 is "top":
 			set {_pg} to arg-2 parsed as an integer
 			if {_pg} isn't set:
 				set {_pg} to 1
 				
-			set {_start} to (({_pg} - 1)*10)+1
-			set {_end} to {_start} + 9
+			set {_start} to size of {playtime::*} - (({_pg} - 1)*10)
 			
-			set {_topList::*} to sorted {playtime::*} from highest to lowest with output "@index"
-			send "&c---= &6Highest Playtimes &c==---"
-			set {_num} to 0
-			loop {_topList::*}:
-				add 1 to {_num}
-				{_num} >= {_start}
-				send "&8[&7%loop-index%&8] &6%{name.%loop-value%}%: &c%playtimeParse({playtime::%loop-value%})%"
-				if {_num} >= {_end}:
-					stop
-				if {_num} >= size of {playtime::*}:
-					stop
+			loop {playtime::*}:
+				add loop-index to {_values::%loop-value%::*}
+
+			set {_topList} to "%{playtime::*} sorted%"
+			replace all "[" and "]" in {_topList} with ""
+			set {_topList::*} to {_topList} split at ", "
+
+			send "&c&m---=&6 Highest Playtimes &c&m=---"
+			loop 10 times:
+				set {_topList::%{_start}%} to "%{_topList::%{_start}%}%" parsed as an integer
+				loop {_values::%{_topList::%{_start}%}%::*}:
+					send "&8[&7%size of {playtime::*} - {_start} + 1%&8] &6%{name.%loop-value-2%}%: &c%playtimeParse({_topList::%{_start}%})%"
+					remove all loop-value-2 from {_values::%{_topList::%{_start}%}%::*}
+					subtract 1 from {_start}
 			stop
 			
 		set {_arg} to ("%arg 1%" parsed as an offline player)
