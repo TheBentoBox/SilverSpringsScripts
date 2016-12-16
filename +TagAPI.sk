@@ -96,3 +96,19 @@ function getKeyValueTag(entityToCheck: entity, key: text) :: text:
 		"%{_valSplit::1}%" is "%{_key}%"
 		return "%{_valSplit::2}%"
 	return "<none>"
+
+
+# @desc:			Removes an entire key-value tag from the entity.
+# @params:	The key of the key=value tag to remove.
+function removeKeyValueTag(entityToUntag: entity, key: text):
+	set {_tags::*} to getTags({_entityToUntag})
+	set {_len} to length of {_key}
+	loop {_tags::*}:
+		first {_len} + 1 characters of loop-value is "%{_key}%="
+		remove loop-value from {_tags::*}
+		stop loop
+	set {_newTag} to join {_tags::*} with ","
+	if "%{_newTag}%" is "<none>":
+		add "{Tags:[]}" to nbt of {_entityToUntag}
+	else:
+		add "{Tags:[%{_newTag}%]}" to nbt of {_entityToUntag}
