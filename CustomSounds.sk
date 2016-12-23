@@ -1,0 +1,163 @@
+#=================#
+#		CUSTOM SOUND EFFECTS		
+#=================#
+#= Master command to toggle effects
+command /togglesounds <text>:
+	aliases: sounds, customsounds
+	trigger:
+		if text-argument-1 is "inventory":
+			if {toggleSounds::%player's uuid%::inventory} is true:
+				delete {toggleSounds::%player's uuid%::inventory}
+				send "&6Inventory sounds enabled." to the player
+			else:
+				set {toggleSounds::%player's uuid%::inventory} to true
+				send "&6Inventory sounds disabled." to the player
+
+
+#============#
+#		Inventory
+#============#
+#= Inventory clicking
+on inventory click:
+	if "%inventory action%" contains "pickup" or "hotbar":
+		{toggleSounds::%player's uuid%::inventory} isn't set
+		execute console command "/execute %player% ~ ~ ~ /playsound minecraft:entity.armorstand.break master %player% ~ ~ ~ 0.2 2"
+	else if "%inventory action%" contains "place" or "instant":
+		{toggleSounds::%player's uuid%::inventory} isn't set
+		set {_i} to "%raw name of cursor slot of player%"
+		replace all "minecraft:" in {_i} with ""
+		execute console command "/execute %player% ~ ~ ~ /playsound minecraft:block.%{_i}%.place master %player% ~ ~ ~ 0.2 1"
+		execute console command "/execute %player% ~ ~ ~ /playsound minecraft:entity.armorstand.break master %player% ~ ~ ~ 0.2 1"
+		
+	# Dropping items from inventory
+	else if "%inventory action%" contains "drop":
+		execute console command "/execute %player% ~ ~ ~ /playsound minecraft:entity.chicken.egg master @a[r=100] ~ ~ ~ 0.2 %random number between 0.65 and 0.75%"
+
+#= Dropping items makes a plop
+on drop:
+	playsound("entity.chicken.egg", "player", player, 0.2, random number between 0.65 and 0.75)
+
+
+
+#============#
+#		Food
+#============#
+#= Drinking sound for eating stew/soups
+on right click:
+	player's tool is rabbit stew, mushroom stew or beetroot soup
+	player's hunger < 10
+	loop 3 times:
+		playsound("entity.generic.drink", "player", player, 0.5, 0.5)
+		wait 5 ticks
+
+#= Cake eat
+on right click on cake:
+	set {_dmg} to damage value of clicked block
+	wait 1 tick
+	if clicked block is air:
+		playsound("entity.player.burp", "player", player)
+	else if data value of clicked block > {_dmg}:
+		playsound("entity.generic.eat", "player", player)
+
+
+
+#============#
+#		Entities
+#============#
+#= Animal feed effect
+on right click on cow, mooshroom, sheep, pig, chicken, wolf, ocelot or rabbit:
+	# Verify the animal just fell in love
+	"%tag ""InLove"" of nbt of clicked entity%" is "0"
+	wait 1 tick
+	"%tag ""InLove"" of nbt of clicked entity%" isn't "0"
+	
+	# Play the sound at different pitches based on the entity
+	if "%clicked entity%" is "cow", "mooshroom" or "sheep":
+		set {_pitch} to 1
+	else if "%clicked entity%" is "pig":
+		set {_pitch} to 2
+	else if "%clicked entity%" is "chicken":
+		set {_pitch} to 2
+	else if "%clicked entity%" is "wolf":
+		set {_pitch} to 1
+	else if "%clicked entity%" is "ocelot":
+		set {_pitch} to 1.5
+		# Ocelots get an extra purr sound
+		playsound("entity.cat.purreow", "neutral", clicked entity's location)
+	else if "%clicked entity%" is "rabbit":
+		set {_pitch} to 2
+		
+	{_pitch} is set
+	playsound("entity.horse.eat", "neutral", clicked entity's location, 1, {_pitch})
+
+
+
+#============#
+#		Blocks
+#============#
+#= Crop plant sound effect
+on place of carrot plant, wheat, beetroot block, potato plant, pumpkin stem, melon stem or nether wart:
+	if player's tool is bonemeal:
+		playsound("block.enchantment_table.use", "block", event-block, 0.125, 2)
+	particle("blockcrack", location 0.25 meters below event-block, 12, 0.1, 0, 0.1, 0, "normal", "@a[r=100]", "%id of block 1 meter below event-block%")
+	playsound("item.shovel.flatten", "block", event-block, 0.15, 0)
+	playsound("item.shovel.flatten", "block", event-block, 0.5, 2)
+	wait 2 ticks
+	playsound("item.shovel.flatten", "block", event-block, 0.5, 2)
+
+#= Blocks go clicky clack
+on left click:
+	player's gamemode is survival or adventure
+	if "%event-block%" contains "plank", "sign", "trapdoor" or "chest":
+		execute console command "execute %player% ~ ~ ~ /playsound minecraft:block.wood.fall block @a[r=100] %clicked block's x loc% %clicked block's y loc% %clicked block's z loc% 0.75 1.5"
+	else if "%event-block%" contains "wood":
+		execute console command "execute %player% ~ ~ ~ /playsound minecraft:block.wood.place block @a[r=100] %clicked block's x loc% %clicked block's y loc% %clicked block's z loc% 0.75 1.5"
+	else if "%event-block%" contains "bone" or "quartz":
+		execute console command "execute %player% ~ ~ ~ /playsound minecraft:block.stone.fall block @a[r=100] %clicked block's x loc% %clicked block's y loc% %clicked block's z loc% 0.75 2"
+	else if "%event-block%" contains "stone", "brick", "stained clay" or "prismarine":
+		execute console command "execute %player% ~ ~ ~ /playsound minecraft:block.stone.fall block @a[r=100] %clicked block's x loc% %clicked block's y loc% %clicked block's z loc% 0.75 1.5"
+	if "%event-block%" contains "glass", "glowstone" or "sea lantern":
+		execute console command "execute %player% ~ ~ ~ /playsound minecraft:block.glass.break block @a[r=100] %clicked block's x loc% %clicked block's y loc% %clicked block's z loc% 0.25 1.5"
+
+#= Hoe till particles
+on right click on dirt with any hoe:
+	player can build at event-location
+	particle("blockcrack", location 0.65 meters above event-location, 12, 0.2, 0, 0.2, 0, "normal", "@a[r=100]", "%id of event-block%")
+	
+#= Redstone dust place
+on place of redstone wire:
+	playsound("block.sand.step", "block", event-location, 0.5, 2)
+
+
+
+#============#
+#		Misc
+#============#
+#= Extra effects for blocks landing
+on block land:
+	if event-block is air:
+		wait 1 tick
+		set {_block::*} to raw name of event-block
+		replace all "minecraft:" in {_block::1} with ""
+		playsound("block.%{_block::1}%.place", "block", event-location, 1, 0)
+	#else:
+	#	set {_block::*} to raw name of event-block
+	#	replace all "minecraft:" in {_block::1} with ""
+	#	playsound("block.%{_block::1}%.place", "block", event-location, 0.5, 25)
+				
+#= Painful milking
+on right click on cow:
+	player's name is "Mr_Simba"
+	player's tool is an empty bucket
+	playsound("entity.cow.hurt", "master", clicked entity)
+	play entity effect hurt at clicked entity
+	push clicked entity up at speed 0.25
+
+#= Elytra activate
+on elytra glide toggle:
+	block at location of player isn't water block
+	player's chestplate is elytra
+	if elytra glide state of player is false:
+		playsound("entity.enderdragon.flap", "master", player, 0.25, 0.5)
+	else:
+		playsound("entity.enderdragon.flap", "master", player, 0.25, 0)
