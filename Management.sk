@@ -1,6 +1,9 @@
+#= Script-wide options and settings
 options:
 	ServerPrefix: &8&l[&7SSS&8&l] &3
 
+
+#= Ensure all worlds have their values and gamerules set appropriately
 on script load:
 	delete {timeUntilRestart}
 	loop worlds:
@@ -8,22 +11,35 @@ on script load:
 		execute console command "mvgamerule sendCommandFeedback false %loop-value%"
 		execute console command "mvgamerule commandBlockOutput false %loop-value%"
 		execute console command "mvmodify set difficulty hard %loop-value%"
-		
+
+
+#= Tag entities with their spawn reason so it can be detected later
+on spawn:
+	setKeyValueTag(event-entity, "SpawnReason", "%spawn reason%")
+
+
+#= Control automated restarts
 every minute:
-	if "%now%" contains "11:55" or "2:55 AM":
+	if "%now%" contains "11:55":
 		broadcast "{@ServerPrefix}The server will restart in 5 minutes."
+		send all players title "&3The server will restart in 5 minutes." with subtitle  "" for 2 seconds with 0 ticks fade in and 10 ticks fade out
 		set {timeUntilRestart} to 5 minutes
-	else if "%now%" contains "11:59" or "2:59 AM":
+	else if "%now%" contains "11:59":
 		broadcast "{@ServerPrefix}The server will restart in 1 minute."
+		send all players title "&3The server will restart in 1 minute." with subtitle  "" for 2 seconds with 0 ticks fade in and 10 ticks fade out
 		set {timeUntilRestart} to 1 minute
 		wait 50 seconds
-		broadcast "{@ServerPrefix} 10 seconds until restart, stop all crafting and similar actions!"
+		broadcast "{@ServerPrefix}10 seconds until restart, stop all crafting and similar actions!"
+		send all players title "&310 seconds until restart." with subtitle  "&7Stop all crafting and similar actions!" for 2 seconds with 0 ticks fade in and 10 ticks fade out
 		wait 7 seconds
 		loop 3 times:
-			broadcast "{@ServerPrefix} Restart in %4 - loop-number%..."
+			broadcast "{@ServerPrefix}Restart in %4 - loop-number%..."
+			send all players title "&3Restart in" with subtitle  "&7%4 - loop-number%..." for 2 seconds with 0 ticks fade in and 10 ticks fade out
 			wait 1 second
 		execute console command "/restart"
 
+
+#= Prevent joining arenas if the player's inventory is too full or if the server is about to restart
 on command:
 	command is "ma" or "mobarena"
 	first character of arguments is "j"
@@ -33,4 +49,19 @@ on command:
 		send "&cThe server is restarting soon; please wait to join arenas until after the restart." to the player
 	else if getFreeSpace(player) < 10:
 		cancel event
-		send "&cYou need at least 10 free inventory slots to join the Mob Arena (to hold the potential prizes afterwards!)" to the player
+		send "&cYou need at least 10 free inventory slots to join a Mob Arena (to hold the potential prizes afterwards!)" to the player
+
+
+#= Keep track of when players were last damaged
+# Used to limit command usage so people can't cheese 
+on damage of player:
+	set {lastDamageTime::%victim's uuid%} to now
+# Catch command execution to save people from using overly cheesy commands
+on command:
+	{lastDamageTime::%player's uuid%} is set
+	if "%command%" is "afk":
+		if player is afk:
+			stop
+		difference between {lastDamageTime::%player's uuid%} and now < 3 seconds
+		send "&cYou can't AFK since you've taken damage recently." to the player
+		cancel event
