@@ -118,6 +118,14 @@ function getFreeSpace(p: player, countArmorSlots: boolean = false) :: number:
 	
 	return {_space}
 
+# @desc:			Sends the provided to all players with the specific permission.
+# @params:	msg: The message to send.
+#						perm: The permission which should be required.
+function sendWithPerms(msg: text, perm: text):
+	loop players:
+		if loop-player has permission "%{_perm}%":
+			send "%{_msg}%" to loop-player
+
 #function logBlockBreak(p: player, loc: location, typeBefore: integer, dataBefore: integer):
 #	set {_test} to return of method "queueBlockBreak" with params "%{_p}'s uuid%", {_loc}, {_typeBefore} and {_dataBefore} in class "de.diddiz.LogBlock.Consumer"
 #	send "%{_tesT}%" to {_p}
