@@ -118,7 +118,7 @@ function getFreeSpace(p: player, countArmorSlots: boolean = false) :: number:
 	
 	return {_space}
 
-# @desc:			Sends the provided to all players with the specific permission.
+# @desc:			Sends the provided message to all players with the specific permission.
 # @params:	msg: The message to send.
 #						perm: The permission which should be required.
 function sendWithPerms(msg: text, perm: text):
