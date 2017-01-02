@@ -1,19 +1,92 @@
 #= Script-wide control variables and functions
 options:
-	Prefix: &8[&3Auction&8]&7
+	Prefix: &8[&2Auction&8]&7
 	Color1: &7
-	Color2: &b
-	Color3: &6
+	Color2: &a
 	Accent: &8
-	Header: &3
+	Header: &2
+
+#= Resume running of auction loop when the script loads, with a delay for alloying people to join
+on script load:
+	set {auctions} to true
+	wait 1 minute
+	runAuctions()
+
+#= Stop auctions from continuing once the script disables
+on script unload:
+	set {auctions} to false
 
 # @desc:			Sends the provided message to all players with auction messages enabled.
 # @params:	msg: The message to send.
-function sendAuctionMsg(msg: text):
+function sendAuctionMsg(msg: text, i: item = 1 dirt):
+	# If it contains the [item] keyword, reformat the message as a tellraw with the item as a hover event
+	if "%{_msg}%" contains "[item]":
+		set {_words::*} to {_msg} split at " "
+		loop {_words::*}:
+			if size of {_parts::*} is 0:
+				add loop-value to {_parts::*}
+			else:
+				set {_s} to size of {_parts::*}
+				if {_parts::%{_s}%} is "[item]":
+					add loop-value to {_parts::*}
+				else if loop-value is "[item]":
+					add loop-value to {_parts::*}
+				else:
+					set {_parts::%{_s}%} to "%{_parts::%{_s}%}% %loop-value%"
+					
+		set {_JSON} to "{""text"":""{@Prefix} ""},"
+		loop {_parts::*}:
+			add 1 to {_loopNum}
+			if loop-value is "[item]":
+				if {_i} is air:
+					set {_JSON} to "%{_JSON}%{""text"":""{@Color1}%loop-value% ""}"
+				else:
+					set {_nbt} to "%nbt of {_i}%"
+					if "%{_nbt}%" is "{}":
+						set {_nbt} to ""
+					else:
+						set {_nbt::*} to {_nbt} split at ""
+						loop {_nbt::*}:
+							"%loop-value-2%" is """"
+							set {_nbt::%loop-index-2%} to "\"""
+						set {_nbt} to join {_nbt::*} with ""
+						set {_nbt} to ",tag:%{_nbt}%"
+					set {_name} to "%name of {_i}%"
+					set {_rawName} to "%raw name of {_i}%"
+					replace all "spade" in {_rawName} with "shovel"
+					replace all "skull_item" in {_rawName} with "skull"
+					replace all "diode" in {_rawName} with "repeater"
+					replace all "book_and_quill" in {_rawName} with "writable_book"
+					replace all "_off" and "unlit_" in {_rawName} with ""
+					replace all "log_2" in {_rawName} with "log2"
+					if "%{_rawName}%" is "minecraft:totem":
+						set {_rawName} to "minecraft:totem_of_undying"
+					if {_name} is "<none>":
+						set {_name} to {_rawName}
+						replace all "minecraft:" in {_name} with ""
+						replace all "_" in {_name} with " "
+						set {_name} to capitalize first char in each word of "%{_name}%"
+						if amount of {_i} > 1:
+							set {_name} to "%{_name}% x%amount of {_i}%"
+					if "%{_rawName}%" is "minecraft:written_book" or "minecraft:writable_book":
+						remove "pages" from nbt of {_i}
+					set {_JSON} to "%{_JSON}%{""text"":""&b[%{_name}%&b] "",""hoverEvent"":{""action"":""show_item"",""value"":""{id:\""%{_rawName}%\"",Damage:%damage of {_i}%,Count:%amount of {_i}%%{_nbt}%}""}}"
+			else:
+				set {_JSON} to "%{_JSON}%{""text"":""{@Color1}%loop-value% ""}"
+				
+			if {_loopNum} < size of {_parts::*}:
+				set {_JSON} to "%{_JSON}%,"
+
+		set {_JSON} to "[%{_JSON}%]"
+		#send "%{_JSON}%" to "Mr_Simba" parsed as a player
+		
 	loop players:
 		if "%{auctionToggle::%loop-player's uuid%}%" isn't "true":
-			loop-player has permission "skript.mod"
-			send "{@Prefix} %{_msg}%" to loop-player
+			#loop-player has permission "skript.mod"
+			if "%{_JSON}%" is "<none>":
+				send "{@Prefix} %{_msg}%" to loop-player
+			else:
+				execute console command "tellraw %loop-player% %{_JSON}%"
 
 # @desc: 		Runs auctions (the first one found in the queue). Recursively calls itself to clear
 #						out further auctions in the queue once this call finishes running.
@@ -21,7 +94,9 @@ function runAuctions(filler: boolean = true):
 	# Conditionals to ensure an auction is queued and one isn't started already
 	size of {auction::queue::*} > 0
 	{auction::current} isn't set
-	
+	{timeUntilRestart} isn't set
+	{auctions} is true
+
 	# Grab auction information
 	set {auction::current} to first element of {auction::queue::*}
 	set {_auctioneer} to "%{name::%{auction::current}%}%" parsed as an offline player
@@ -31,22 +106,30 @@ function runAuctions(filler: boolean = true):
 	wait 3 seconds
 	
 	# Send starting info
-	sendAuctionMsg("{@Color2}%{_auctioneer}%{@Color1} is auctioning {@Color3}%{auction::%{auction::current}%::item}%{@Color1}, starting at {@Color2}%{auction::%{auction::current}%::startingBid}% silver{@Color1} with a bidding increment of {@Color2}%{auction::%{auction::current}%::increment}%{@Color1}. Bidding will last %{auction::current::time}%.")
+	set {auction::started} to true
+	sendAuctionMsg("{@Color2}%{_auctioneer}%{@Color1} is auctioning [item] , starting at {@Color2}%{auction::%{auction::current}%::startingBid}% silver{@Color1} with a bidding increment of {@Color2}%{auction::%{auction::current}%::increment}%{@Color1}. Bidding will last %{auction::current::time}%.", {auction::%{auction::current}%::item})
 	
 	# Main auction loop
 	set {_count} to floor({auction::%{auction::current}%::duration}*60)
 	loop {_count} times:
-		wait 1 second
-		subtract 1 second from {auction::current::time}
-		if {auction::current::time} is 30 seconds:
-			sendAuctionMsg("{@Color2}%{_auctioneer}%'s{@Color1} auction for {@Color3}%{auction::%{auction::current}%::item}%{@Color1} has 30 seconds remaining.")
-		else if {auction::current::time} is 5 seconds:
-			sendAuctionMsg("{@Color2}%{_auctioneer}%'s{@Color1} auction for {@Color3}%{auction::%{auction::current}%::item}%{@Color1} has 5 seconds remaining.")
+		if {auctions} is false:
+			exit 2 sections
+		else if {auction::cancel} is true:
+			delete {auction::cancel}
+			sendAuctionMsg("{@Color2}%{_auctioneer}%{@Color1}'s auction for [item] has been cancelled.", {auction::%{auction::current}%::item})
+			exit 2 sections
+		else:
+			wait 1 second
+			subtract 1 second from {auction::current::time}
+			if {auction::current::time} is 30 seconds:
+				sendAuctionMsg("{@Color2}%{_auctioneer}%'s{@Color1} auction for [item] has 30 seconds remaining.", {auction::%{auction::current}%::item})
+			else if {auction::current::time} is 5 seconds:
+				sendAuctionMsg("{@Color2}%{_auctioneer}%'s{@Color1} auction for [item] has 5 seconds remaining.", {auction::%{auction::current}%::item})
 	
 	# Finish auction
 	set {_returned} to false
 	if {auction::current::currentBid} isn't -1:
-		sendAuctionMsg("{@Color2}%{auction::current::highestBidder}%{@Color1} has won {@Color2}%{_auctioneer}%'s{@Color1} auction for {@Color3}%{auction::%{auction::current}%::item}%{@Color1}, paying {@Color2}%{auction::current::currentBid}% silver{@Color1}.")
+		sendAuctionMsg("{@Color2}%{auction::current::highestBidder}%{@Color1} has won {@Color2}%{_auctioneer}%'s{@Color1} auction for [item] , paying {@Color2}%{auction::current::currentBid}% silver{@Color1}.", {auction::%{auction::current}%::item})
 		execute console command "eco give %{name::%{auction::current}%}% %{auction::current::currentBid}%"
 
 		# Try to give the items to the person who won the auction
@@ -76,16 +159,28 @@ function runAuctions(filler: boolean = true):
 		# Item wasn't returned successfully, so hold it for them
 		{_returned} is false
 		add {auction::%{auction::current}%::item} to {auctionClaims::%{auction::current}%::*}
-		send "{@Prefix} No bids were made on your auction, but you don't have room to hold the auctioned items. Make room and use {@Color2}/auction claim{@Color1} to retrieve them." to {_auctioneer}
+		send "{@Prefix} No bids were made on your auction, but you don't have room to hold the returned items. Make room and use {@Color2}/auction claim{@Color1} to retrieve them." to {_auctioneer}
 
 	# Cleanup
 	remove all {auction::current} from {auction::queue::*}
 	delete {auction::current}
 	delete {auction::current::*}
+	delete {auction::started}
 
 	# Run next auction if there are any
+	{auctions} is true
 	size of {auction::queue::*} > 0
-	runAuctions()
+	if {timeUntilRestart} is set:
+		sendAuctionMsg("Further queued auctions will be paused as a server restart is approaching. They will resume after the restart.")
+	else:
+		runAuctions()
+
+#= Inform players of unclaimed auction items on login if they have any
+on join:
+	# Delay so the info message pops in once they're actually in the game proper
+	wait 2 seconds 
+	size of {auctionClaims::%player's uuid%::*} > 0
+	send "{@Prefix} You have unclaimed items from won or failed auctions (%{auctionClaims::%player's uuid%::*}%). Use {@Color2}/auction claim{@Color1} to retrieve them." to the player
 
 
 
@@ -93,40 +188,42 @@ function runAuctions(filler: boolean = true):
 command /auction [<text="current">] [<number=100>] [<number=100>] [<number=1>] [<integer=0>]:
 	executable by: players
 	aliases: auctions
-	permission: skript.mod
 	trigger:
-		# Displays an interface wih information about /auction and all of its subcommands
-		if text-argument-1 is "help", "h", "hlep" or "?":
-			send "{@Accent}&m---==={@Accent}[{@Header} Auction {@Accent}]&m===---" to the player
-			send "{@Color3}/auction create <starting bid> <increment> [duration in minutes] [number of items]{@Color1}: Puts the item you're holding up for auction:" to the player
-			send "    {@Color2}Starting bid{@Color1}: The minimum first bid. Defaults to 100 silver." to the player
-			send "    {@Color2}Increment{@Color1}: The minimum amount of silver a player must add to the previous bid. Defaults to 100 silver." to the player
-			send "    {@Color2}Duration in minutes{@Color1}: How many minutes the auction should last, from 1 - 3. Defaults to 1 minute." to the player
-			send "    {@Color2}Number of items{@Color1}: Indicates how many of the item you're holding should be auctioned. This is useful for unstackable items, e.g. donating more than one totem of undying since you can't hold them all at once. Defaults to the amount in your hand." to the player
-			send "{@Color3}/auction cancel{@Color1}: Cancels your queued auction." to the player
-			send "{@Color3}/auction toggle{@Color1}: Toggles visibility of auction chat messages." to the player
-			send "{@Color3}/auction current{@Color1}: Sends information about the current auction. This is shown by default if there is an auction active." to the player
-			send "{@Color3}/auction help{@Color1}: Shows this information dialog. This is shown by default if there is not an auction active." to the player
 
 		# Sends informating about the currently active auction.
 		# If there is no auction running, the player is instead re-routed to /auction help (directly above).
-		else if text-argument-1 is "current" or "view":
+		if text-argument-1 is "current" or "view":
 			if {auction::current} isn't set:
 				make player execute "/auction help"
 			else:
 				send "{@Accent}&m---==={@Accent}[{@Header} Auction {@Accent}]&m===---" to the player
-				send "{@Color3}Auctioneer{@Color1}: %{name::%{auction::current}%}%" to the player
-				send "{@Color3}Item{@Color1}: %{auction::%{auction::current}%::item}%" to the player
+				send "{@Color2}Auctioneer{@Color1}: %{name::%{auction::current}%}%" to the player
+				send "{@Color2}Item{@Color1}: %{auction::%{auction::current}%::item}%" to the player
 				if {auction::current::currentBid} is -1:
-					send "{@Color3}Current Bid{@Color1}: No bids yet" to the player
+					send "{@Color2}Current Bid{@Color1}: No bids yet" to the player
 				else:
-					send "{@Color3}Current Bid{@Color1}: %{auction::current::currentBid}%" to the player
-				send "{@Color3}Increment{@Color1}: %{auction::%{auction::current}%::increment}%" to the player
-				send "{@Color3}Time Remaining{@Color1}: %{auction::current::time}%" to the player
+					send "{@Color2}Current Bid{@Color1}: %{auction::current::currentBid}%" to the player
+				send "{@Color2}Increment{@Color1}: %{auction::%{auction::current}%::increment}%" to the player
+				send "{@Color2}Time Remaining{@Color1}: %{auction::current::time}%" to the player
 
 		# Main auction creation command. Has a lot of checks to make sure people don't make funky auctions.
 		# Players can only have one auction running or queued at a time.
-		else if text-argument-1 is "start", "add", "create" or "queue":
+		else if text-argument-1 is "start", "add" or "create":
+			#player has permission "skript.mod"
+			# Block banned people from starting auctions
+			if {auction::bans::%player's uuid%} is set:
+				# If the time has passed, clear the ban
+				if difference between {auction::bans::%player's uuid%} and now > {auction::banDurations::%player's uuid%}:
+					delete {auction::bans::%player's uuid%}
+					delete {auction::banDurations::%player's uuid%}
+				# Otherwise, deny
+				else:
+					send "{@Prefix} You are banned from starting auctions for %difference between {auction::banDurations::%player's uuid%} and (difference between {auction::bans::%player's uuid%} and now)%" to the player
+					stop
+			# Don't allow people to begin auctions if they have a claim
+			if size of {auctionClaims::%player's uuid%::*} > 0:
+				send "{@Prefix} You still have unclaimed items from previous auctions, claim those with {@Color2}/auction claim{@Color1} before starting a new one." to the player
+				stop
 			# Get a number representing the amount of items the player wants to auction
 			if integer-argument-1 is 0:
 				set {_amt} to amount of player's tool
@@ -144,41 +241,51 @@ command /auction [<text="current">] [<number=100>] [<number=100>] [<number=1>] [
 			else if player doesn't have {_amt} of player's tool:
 				send "{@Prefix} You don't have enough of that item to auction." to the player
 			# Make sure the starting bid is reasonable
-			else if number-argument-1 <= 0:
-				send "{@Prefix} The starting bid must be more than 0 silver." to the player
+			else if number-argument-1 < 1:
+				send "{@Prefix} The starting bid must be at least 1 silver." to the player
 			else if number-argument-1 > 100000:
 				send "{@Prefix} The starting bid can't be above 100,000 silver." to the player
 			# Make sure the minimum increment is also reasonable
-			else if number-argument-2 <= 0:
-				send "{@Prefix} The minimum increment must be more than 0 silver."
+			else if number-argument-2 < 1:
+				send "{@Prefix} The minimum increment must be at least 1 silver."
 			else if number-argument-2 > 5000:
 				send "{@Prefix} The minimum increment can't be above 5000 silver."
 			else:
 				# Try to avoid stupid auctions, e.g. 27 dirt
 				# This goes in here because it'd catch cases that break other rules since it's a general check for certain item types
 				# (and Skript doesn't handle compound boolean statements well)
-				if type of player's tool is dirt, gravel, netherrack, stone, any log, sand, cobblestone, diorite, andesite or granite:
+				if type of player's tool is dirt, coarse dirt, gravel, netherrack, stone, any log, sand, cobblestone, diorite, torch, andesite or granite:
 					amount of player's tool < 64
 					send "{@Prefix} Don't waste peoples' time auctioning a minimal amount of resources, please." to the player
+					stop
+				else if type of player's tool is written book or book and quill:
 					stop
 				# Finally, the auction goes through
 				set {auction::%player's uuid%::startingBid} to number-argument-1
 				set {auction::%player's uuid%::increment} to number-argument-2
 				set {auction::%player's uuid%::duration} to clamp(number-argument-3, 1, 3)
 				set {auction::%player's uuid%::item} to {_amt} of player's tool
+				send "{@Prefix} Your auction for {@Color2}%type of player's tool%{@Color1} has been queued. You are position {@Color2}%size of {auction::queue::*} + 1%{@Color1} in the queue." to the player
 				remove {_amt} of player's tool from player's inventory
 				add player's uuid to {auction::queue::*}
-				send "{@Prefix} Your auction for {@Color2}%{auction::%player's uuid%::item}%{@Color1} has been queued." to the player
 				if {auction::current} isn't set:
 					runAuctions()
 
-		# Alows players to cancel their queued auction. They can't be canceled once started.
+		# Alows players to cancel their auction. They can't be canceled once started & bid upon.
 		else if text-argument-1 is "cancel":
 			if {auction::current} is player's uuid:
-				send "{@Prefix} You can't cancel an auction that's already started." to the player
+				if {auction::current::currentBid} is -1:
+					set {auction::cancel} to true
+				else:
+					send "{@Prefix} You can't cancel an auction that's already been bid on." to the player
 			else if "%{auction::queue::*}%" contains "%player's uuid%":
-				send "{@Prefix} Your auction for {@Color2}%{auction::%player's uuid%::item}%{@Color1} has been canceled." to the player
 				remove all player's uuid from {auction::queue::*}
+				if player can hold {auction::%player's uuid%::item}:
+					send "{@Prefix} Your queued auction has been canceled." to the player
+					give {auction::%player's uuid%::item} to the player
+				else:
+					send "{@Prefix} Your queued auction has been canceled, but you don't have room to hold the auctioned item anymore. It has been added to your auction claims, and can be retrieved at any point with {@Color2}/auction claim{@Color1}." to the player
+					add {auction::%player's uuid%::item} to {auctionClaims::%player's uuid%::*}
 				delete {auction::%player's uuid%::*}
 			else:
 				send "{@Prefix} You don't have an auction queued." to the player
@@ -192,11 +299,66 @@ command /auction [<text="current">] [<number=100>] [<number=100>] [<number=1>] [
 				delete {auctionToggle::%player's uuid%}
 				send "{@Prefix} Re-enabled auction messages." to the player
 
+		# Allows players to toggle their personal visibility of auction related messages.
+		else if text-argument-1 is "queue":
+			if size of {auction::queue::*} is 0:
+				send "{@Prefix} There are no auctions queued." to the player
+			else:
+				send "{@Prefix} Queued auctioneers:" to the player
+				set {_num} to 1
+				loop {auction::queue::*}:
+					send "{@Color2}[%{_num}%] {@Color1}%{name::%loop-value%}%" to the player
+					add 1 to {_num}
+
+		# Retrieval of items that were either returned after a failed auction or won in an auction
+		# Normally they're just given to the player, but if they don't have room to hold the won/returned items, it goes here
+		else if text-argument-1 is "claim" or "claims":
+			loop {auctionClaims::%player's uuid%::*}:
+				if player can hold loop-value:
+					give loop-value to the player
+					remove loop-value from {auctionClaims::%player's uuid%::*}
+			if size of {auctionClaims::%player's uuid%::*} > 0:
+				send "{@Prefix} You were unable to claim the following auction items: %{auctionClaims::%player's uuid%::*}%. Claim too big to hold in your inventory? Use {@Color2}/auction dropclaims{@Color1} to drop your claims at your feet instead." to the player
+			else:
+				delete {auctionClaims::%player's uuid%::*}
+				send "{@Prefix} All unclaimed auction items have been returned to you." to the player
+
+		# Separate way to retrieve auction claims, instead dropping them at the player's feet
+		else if text-argument-1 is "dropclaim" or "dropclaims":
+			loop {auctionClaims::%player's uuid%::*}:
+				if player can hold loop-value:
+					give loop-value to the player
+				else:
+					if amount of loop-value > 64:
+						drop (amount of loop-value mod 64) of loop-value at the player's head
+						loop floor(amount of loop-value/64) times:
+							drop 64 of loop-value-1 at the player's head
+				remove loop-value from {auctionClaims::%player's uuid%::*}
+			delete {auctionClaims::%player's uuid%::*}
+			send "{@Prefix} All unclaimed auction items have been dropped on you." to the player
+
+		# Displays an interface wih information about /auction and all of its subcommands
+		else:
+			send "{@Accent}&m---==={@Accent}[{@Header} Auction {@Accent}]&m===---" to the player
+			send "{@Color2}/auction create [starting bid] [increment] [duration] [num items]{@Color1}" to the player
+			send "    {@Accent}Starting bid{@Color1}: The minimum first bid. Defaults to 100 silver." to the player
+			send "    {@Accent}Increment{@Color1}: The minimum amount of silver a player must add to the previous bid. Defaults to 100." to the player
+			send "    {@Accent}Duration in minutes{@Color1}: How many minutes the auction should last, from 1 - 3. Defaults to 1 minute." to the player
+			send "    {@Accent}Number of items{@Color1}: Indicates how many of the item you're holding should be auctioned (useful for unstackable items). Defaults to the amount in your hand." to the player
+			send "{@Color2}/auction cancel{@Color1}: Cancels your queued auction." to the player
+			send "{@Color2}/auction toggle{@Color1}: Toggles visibility of auction chat messages." to the player
+			send "{@Color2}/auction current{@Color1}: Sends information about the current auction. This is shown by default if there is an auction active." to the player
+			#send "{@Color2}/auction help{@Color1}: Shows this information dialog. This is shown by default if there is not an auction active." to the player
+			send "{@Color2}/bid [amount]{@Color1}: Bids on the current auction. Defaults to bidding the starting amount if nobody has bid yet, or outbidding by the increment. You can specify a number to bid a specific amount." to the player
+
+
+
+#= Core bidding command
 command /bid [<number=-1>]:
-	permission: skript.mod
+	#permission: skript.mod
 	trigger:
 		# Ensure an auction is even running
-		if {auction::current} is set:
+		if {auction::started} is true:
 			# Don't allow players to bid on their own stuff or overbid themselves
 			if {auction::current} is player's uuid:
 				send "{@Prefix} You can't bid on your own auction." to the player
@@ -204,7 +366,7 @@ command /bid [<number=-1>]:
 			else if {auction::current::highestBidder} is player:
 				send "{@Prefix} You're already the highest bidder." to the player
 				stop
-		
+				
 			# -1 handles the bid for them (pay starting bid or overpay by increment)
 			if number-argument-1 is -1:
 				# No bid yet - pay the starting bid
@@ -219,18 +381,28 @@ command /bid [<number=-1>]:
 				if {auction::current::currentBid} is -1:
 					if number-argument-1 < {auction::%{auction::current}%::startingBid}:
 						send "{@Prefix} You must bid at least the starting bid of %{auction::%{auction::current}%::startingBid}% silver." to the player
+						stop
 					else:
 						set {_bid} to number-argument-1
 				# Else, make sure the specific bid is at least the current bid + the increment
 				else:
 					if number-argument-1 < {auction::current::currentBid} + {auction::%{auction::current}%::increment}:
 						send "{@Prefix} You must bid at least %{auction::%{auction::current}%::increment}% more than the current bid of %{auction::current::currentBid}% silver." to the player
+						stop
 					else:
 						set {_bid} to number-argument-1
-			{_bid} is set
+			"%{_bid}%" isn't "<none>"
 
 			# Now, see if they can pay the bid
+			set {_oldBal} to player's balance
 			if player's balance >= {_bid}:
+				# Try to remove the bid from their bal, then failsafe in case it SOMEHOW bypasses the if statement
+				# Note: that's happened before, and it let a player bid more than their balance, which duped money
+				remove {_bid} from player's balance
+				if player's balance == {_oldBal}:
+					send "{@Prefix} You can't afford to bid that much." to the player
+					stop
+				
 				# Return last high bidder their bid now that they've been outdone
 				if {auction::current::currentBid} isn't -1:
 					# If online, add it back to them normally (and silently)
@@ -245,9 +417,32 @@ command /bid [<number=-1>]:
 				set {auction::current::bids::%player's uuid%} to {_bid}
 				set {auction::current::highestBidder} to player
 				set {auction::current::currentBid} to {_bid}
-				remove {_bid} from player's balance
-				sendAuctionMsg("{@Color2}%player%{@Color1} has bid {@Color2}%{_bid}% silver{@Color1} on {@Color3}%{auction::%{auction::current}%::item}%{@Color1}.")
+				sendAuctionMsg("{@Color2}%player%{@Color1} has bid {@Color2}%{_bid}% silver{@Color1} on [item] .", {auction::%{auction::current}%::item})
 			else:
 				send "{@Prefix} You can't afford to bid that much." to the player
 		else:
 			send "{@Prefix} There isn't an auction currently running." to the player
+
+
+
+#= Staff command to prevent someone from starting auctions
+command /auctionban <player> <text>:
+	permission: skript.mod
+	trigger:
+		# Ending somone's auction ban
+		if text-argument-1 is "disable", "end", "unban" or "pardon":
+			if {auction::bans::%player-argument's uuid%} is set:
+				delete {auction::bans::%player-argument's uuid%}
+				send "{@Prefix} Removed {@Color2}%player-argument%'s{@Color1} auction ban." to the player
+			else:
+				send "{@Prefix} {@Color2}%player-argument%{@Color1} is not banned from auctions." to the player
+		# Trying to create a ban
+		else:
+			set {_duration} to "%text-argument-1%" parsed as a timespan
+			if "%{_duration}%" is "<none>":
+				send "{@Prefix} Invalid ban duration." to the player
+				stop
+			set {auction::bans::%player-argument's uuid%} to now
+			set {auction::banDurations::%player-argument's uuid%} to {_duration}
+			send "{@Prefix} Banned {@Color2}%player-argument%{@Color1} from starting auctions for {@Color2}%{_duration}%{@Color1}." to the player
+			send "{@Prefix} You have been banned from starting auctions for {@Color2}%{_duration}%{@Color1}." to the player-argument
