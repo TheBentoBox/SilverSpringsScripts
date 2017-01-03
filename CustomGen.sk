@@ -1,5 +1,4 @@
 on chunk generate:
-	"%event-world%" contains "resource"
 	"%event-world%" doesn't contain "nether" or "end"
 
 	set {_chunk} to "%event-chunk%"
@@ -50,23 +49,57 @@ on chunk generate:
 			exit 2 sections
 		if block at location 1 meter below {_loc} is blue stained clay:
 			loop players in event-world:
-				execute console command "execute %loop-player% ~ ~ ~ /summon Zombie %{_loc}'s x loc% %{_loc}'s y loc% %{_loc}'s z loc% {CustomName:""&6&lUndead Pharaoh"",CustomNameVisible:1,IsVillager:0,ZombieType:6,IsBaby:0,ArmorItems:[{id:golden_boots,Count:1,tag:{AttributeModifiers:[{AttributeName:""generic.movementSpeed"",Name:""generic.movementSpeed"",Amount:.10,Operation:1,UUIDLeast:801547,UUIDMost:604701,Slot:""feet""}],Unbreakable:1,display:{Name:""&6&lPharaoh's Sandals"",Lore:[&7Artifact]}}},{id:golden_leggings,Count:1,tag:{Unbreakable:1,display:{Name:""&6&lPharaoh's Leggings"",Lore:[&7Artifact]}}},{id:golden_chestplate,Count:1,tag:{Unbreakable:1,display:{Name:""&6&lPharaoh's Tunic"",Lore:[&7Artifact]}}},{id:golden_helmet,Count:1,tag:{Unbreakable:1,display:{Name:""&6&lPharaoh's Headdress"",Lore:[&7Artifact]}}}],HandItems:[{id:golden_axe,Count:1,tag:{AttributeModifiers:[{AttributeName:""generic.maxHealth"",Name:""generic.maxHealth"",Amount:4,Operation:0,UUIDLeast:375855,UUIDMost:95579,Slot:""mainhand""},{AttributeName:""generic.knockbackResistance"",Name:""generic.knockbackResistance"",Amount:0,Operation:0,UUIDLeast:633089,UUIDMost:713952,Slot:""mainhand""},{AttributeName:""generic.attackDamage"",Name:""generic.attackDamage"",Amount:-.25,Operation:1,UUIDLeast:46792,UUIDMost:707079,Slot:""mainhand""}],Unbreakable:1,display:{Name:""&6&lPharaoh's Flail"",Lore:[""&7Drains your enemies, gives you might."", ""&7Use with crook.""]}}},{id:golden_hoe,Count:1,tag:{AttributeModifiers:[{AttributeName:""generic.knockbackResistance"",Name:""generic.knockbackResistance"",Amount:1,Operation:0,UUIDLeast:605545,UUIDMost:597349,Slot:""offhand""}],Unbreakable:1,display:{Name:""&6&lPharaoh's Crook"",Lore:[""&7Drains your enemies, gives you might."", ""&7Use with flail.""]}}}],ArmorDropChances:[2.0F,2.0F,2.0F,2.0F],HandDropChances:[2.0F,2.0F],Attributes:[{Name:generic.maxHealth,Base:200},{Name:zombie.spawnReinforcements,Base:0.2F},{Name:generic.knockbackResistance,Base:1}],Health:200.0f,PersistenceRequired:1,CanPickUpLoot:1b,LeftHanded:1}"
+				execute console command "execute %loop-player% ~ ~ ~ /summon husk %{_loc}'s x loc% %{_loc}'s y loc% %{_loc}'s z loc% {CustomName:""&6&lUndead Pharaoh"",CustomNameVisible:1,IsBaby:0,ArmorItems:[{id:golden_boots,Count:1,tag:{AttributeModifiers:[{AttributeName:""generic.movementSpeed"",Name:""generic.movementSpeed"",Amount:.10,Operation:1,UUIDLeast:801547,UUIDMost:604701,Slot:""feet""}],Unbreakable:1,display:{Name:""&6&lPharaoh's Sandals"",Lore:[&7Artifact]}}},{id:golden_leggings,Count:1,tag:{Unbreakable:1,display:{Name:""&6&lPharaoh's Leggings"",Lore:[&7Artifact]}}},{id:golden_chestplate,Count:1,tag:{Unbreakable:1,display:{Name:""&6&lPharaoh's Tunic"",Lore:[&7Artifact]}}},{id:golden_helmet,Count:1,tag:{Unbreakable:1,display:{Name:""&6&lPharaoh's Headdress"",Lore:[&7Artifact]}}}],HandItems:[{id:golden_axe,Count:1,tag:{AttributeModifiers:[{AttributeName:""generic.maxHealth"",Name:""generic.maxHealth"",Amount:4,Operation:0,UUIDLeast:375855,UUIDMost:95579,Slot:""mainhand""},{AttributeName:""generic.knockbackResistance"",Name:""generic.knockbackResistance"",Amount:0,Operation:0,UUIDLeast:633089,UUIDMost:713952,Slot:""mainhand""},{AttributeName:""generic.attackDamage"",Name:""generic.attackDamage"",Amount:-.25,Operation:1,UUIDLeast:46792,UUIDMost:707079,Slot:""mainhand""}],Unbreakable:1,display:{Name:""&6&lPharaoh's Flail"",Lore:[""&7Drains your enemies, gives you might."", ""&7Use with crook.""]}}},{id:golden_hoe,Count:1,tag:{AttributeModifiers:[{AttributeName:""generic.knockbackResistance"",Name:""generic.knockbackResistance"",Amount:1,Operation:0,UUIDLeast:605545,UUIDMost:597349,Slot:""offhand""}],Unbreakable:1,display:{Name:""&6&lPharaoh's Crook"",Lore:[""&7Drains your enemies, gives you might."", ""&7Use with flail.""]}}}],ArmorDropChances:[2.0F,2.0F,2.0F,2.0F],HandDropChances:[2.0F,2.0F],Attributes:[{Name:generic.maxHealth,Base:200},{Name:zombie.spawnReinforcements,Base:0.2F},{Name:generic.knockbackResistance,Base:1}],Health:200.0f,PersistenceRequired:1,CanPickUpLoot:1b,LeftHanded:1}"
 				stop
 				
 	else if biome at {_loc} is beach:
 		if block at location 1 meter below {_loc} is sand:
 			chance of 45%:
 				paste schematic "plugins/WorldEdit/schematics/BeachTree%random integer between 1 and 4%" at {_loc} using editsession {_session} without air
+				chance of 1%:
+					block 2 meters below {_loc} is sand
+					block at location 1 meter below and 1 meter north of {_loc} isn't nonsolid
+					block at location 1 meter below and 1 meter south of {_loc} isn't nonsolid
+					block at location 1 meter below and 1 meter east of {_loc} isn't nonsolid
+					block at location 1 meter below and 1 meter west of {_loc} isn't nonsolid
+					set block at location 1 meter below {_loc} to chest
+					add "{LootTable:""minecraft:chests/desert_pyramid""}" to nbt of block at location 1 meter below {_loc}
 				
 	else if "%biome at {_loc}%" contains "mesa":
-		block 1 meter below {_loc} isn't nonsolid
+		block 1 meter below {_loc} is grass, dirt, coarse dirt, any stained clay, hardened clay, sand or red sand
 		chance of 0.5%:
 			paste schematic "plugins/WorldEdit/schematics/MesaTent%""NS"" or ""EW""	%" at {_loc} using editsession {_session}
+	
+	else if "%biome at {_loc}%" contains "savanna":
+		chance of 1%:
+			spawn an ocelot at {_loc}
+			chance of 50%:
+				spawn a baby ocelot at {_loc}
+			chance of 50%:
+				spawn a baby ocelot at {_loc}
+
+	else if "%biome at {_loc}%" contains "extreme", "savanna" or "mega taiga":
+		chance of 2%:
+			spawn a llama at {_loc}
+			spawn a llama at {_loc}
+			chance of 50%:
+				spawn a llama at {_loc}
+			chance of 50%:
+				spawn a llama at {_loc}
+	
+	else if "%biome at {_loc}%" contains "ice":
+		chance of 1%:
+			spawn a polar bear at {_loc}
+			spawn a polar bear at {_loc}
+			chance of 50%:
+				spawn a polar bear at {_loc}
+			chance of 50%:
+				spawn a polar bear at {_loc}
 		
 	
 
 on chunk generate:
-	"%event-world%" contains "nether" and "res"
+	"%event-world%" contains "nether"
 	
 	chance of 75%
 	
@@ -110,6 +143,7 @@ on chunk generate:
 				
 		chance of 50%:
 			spawn a magma cube at {_loc}
+			add "{PersistenceRequired:1}" to nbt of last spawned entity
 		stop
 	
 	{_loc}'s y location >= 30
