@@ -59,6 +59,7 @@ function sendAuctionMsg(msg: text, i: item = 1 dirt):
 					replace all "book_and_quill" in {_rawName} with "writable_book"
 					replace all "_off" and "unlit_" in {_rawName} with ""
 					replace all "log_2" in {_rawName} with "log2"
+					replace all "ink_sack" in {_rawName} with "dye"
 					if "%{_rawName}%" is "minecraft:totem":
 						set {_rawName} to "minecraft:totem_of_undying"
 					if {_name} is "<none>":
@@ -79,7 +80,10 @@ function sendAuctionMsg(msg: text, i: item = 1 dirt):
 
 		set {_JSON} to "[%{_JSON}%]"
 		#send "%{_JSON}%" to "Mr_Simba" parsed as a player
-		
+	
+	set {_consoleMsg} to {_msg}
+	replace all "[item]" in {_consoleMsg} with "&b[%{_name}%&b]"
+	send "{@Prefix} %{_consoleMsg}%" to console
 	loop players:
 		if "%{auctionToggle::%loop-player's uuid%}%" isn't "true":
 			#loop-player has permission "skript.mod"
@@ -110,8 +114,7 @@ function runAuctions(filler: boolean = true):
 	sendAuctionMsg("{@Color2}%{_auctioneer}%{@Color1} is auctioning [item] , starting at {@Color2}%{auction::%{auction::current}%::startingBid}% silver{@Color1} with a bidding increment of {@Color2}%{auction::%{auction::current}%::increment}%{@Color1}. Bidding will last %{auction::current::time}%.", {auction::%{auction::current}%::item})
 	
 	# Main auction loop
-	set {_count} to floor({auction::%{auction::current}%::duration}*60)
-	loop {_count} times:
+	while true:
 		if {auctions} is false:
 			exit 2 sections
 		else if {auction::cancel} is true:
@@ -125,6 +128,8 @@ function runAuctions(filler: boolean = true):
 				sendAuctionMsg("{@Color2}%{_auctioneer}%'s{@Color1} auction for [item] has 30 seconds remaining.", {auction::%{auction::current}%::item})
 			else if {auction::current::time} is 5 seconds:
 				sendAuctionMsg("{@Color2}%{_auctioneer}%'s{@Color1} auction for [item] has 5 seconds remaining.", {auction::%{auction::current}%::item})
+			else if {auction::current::time} <= 0 seconds:
+				exit 3 sections
 	
 	# Finish auction
 	set {_returned} to false
@@ -200,10 +205,10 @@ command /auction [<text="current">] [<number=100>] [<number=100>] [<number=1>] [
 				send "{@Color2}Auctioneer{@Color1}: %{name::%{auction::current}%}%" to the player
 				send "{@Color2}Item{@Color1}: %{auction::%{auction::current}%::item}%" to the player
 				if {auction::current::currentBid} is -1:
-					send "{@Color2}Current Bid{@Color1}: No bids yet" to the player
+					send "{@Color2}Current Bid{@Color1}: No bids yet (starting bid %{auction::%{auction::current}%::startingBid}% silver)" to the player
 				else:
-					send "{@Color2}Current Bid{@Color1}: %{auction::current::currentBid}%" to the player
-				send "{@Color2}Increment{@Color1}: %{auction::%{auction::current}%::increment}%" to the player
+					send "{@Color2}Current Bid{@Color1}: %{auction::current::currentBid}% silver by %{auction::current::highestBidder}%" to the player
+				send "{@Color2}Increment{@Color1}: %{auction::%{auction::current}%::increment}% silver" to the player
 				send "{@Color2}Time Remaining{@Color1}: %{auction::current::time}%" to the player
 
 		# Main auction creation command. Has a lot of checks to make sure people don't make funky auctions.
@@ -255,7 +260,7 @@ command /auction [<text="current">] [<number=100>] [<number=100>] [<number=1>] [
 				# This goes in here because it'd catch cases that break other rules since it's a general check for certain item types
 				# (and Skript doesn't handle compound boolean statements well)
 				if type of player's tool is dirt, coarse dirt, gravel, netherrack, stone, any log, sand, cobblestone, diorite, torch, andesite or granite:
-					amount of player's tool < 64
+					{_amt} < 64
 					send "{@Prefix} Don't waste peoples' time auctioning a minimal amount of resources, please." to the player
 					stop
 				else if type of player's tool is written book or book and quill:
@@ -417,7 +422,11 @@ command /bid [<number=-1>]:
 				set {auction::current::bids::%player's uuid%} to {_bid}
 				set {auction::current::highestBidder} to player
 				set {auction::current::currentBid} to {_bid}
-				sendAuctionMsg("{@Color2}%player%{@Color1} has bid {@Color2}%{_bid}% silver{@Color1} on [item] .", {auction::%{auction::current}%::item})
+				if {auction::current::time} < 5 seconds:
+					set {auction::current::time} to 5 seconds
+					sendAuctionMsg("{@Color2}%player%{@Color1} has bid {@Color2}%{_bid}% silver{@Color1} on [item] , resetting the auction timer to 5 seconds.", {auction::%{auction::current}%::item})
+				else:
+					sendAuctionMsg("{@Color2}%player%{@Color1} has bid {@Color2}%{_bid}% silver{@Color1} on [item] .", {auction::%{auction::current}%::item})
 			else:
 				send "{@Prefix} You can't afford to bid that much." to the player
 		else:
