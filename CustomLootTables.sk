@@ -7,7 +7,6 @@ on script load:
 #== Adding rare items to loot tables
 on right click on chest:
 	# Conditions
-	player's name is "Mr_Simba"
 	isASurvivalWorld(player's world) is true
 	set {_table} to tag "LootTable" of nbt of clicked block
 	wait 1 tick
@@ -25,6 +24,11 @@ on right click on chest:
 
 	# Perform switch on cleansed table name
 	switch "%{_table}%":
+		# Nether fortresses
+		case "nether_bridge":
+			chance of 2.5%:
+				set slot {_slot} of clicked block to {item.WitheredHeart}
+
 		# Woodland mansion
 		case "woodland_mansion":
 			chance of 2.5%:
@@ -44,9 +48,10 @@ on right click on chest:
 #== Adding special drops to minibosses
 on death of evoker:
 	isASurvivalWorld(victim's world) is true
-	attacker's name is "Mr_Simba"
 	drop 1 of {item.DustyEmerald} at the victim
 on death of elder guardian:
 	isASurvivalWorld(victim's world) is true
-	attacker's name is "Mr_Simba"
 	drop 1 of {item.TwinklingSeaCrystals} at the victim
+on death of wither:
+	isASurvivalWorld(victim's world) is true
+	drop 1 of {item.WitheredHeart} at the victim
