@@ -1,41 +1,10 @@
-function playtimeParse(numUse: number) :: text:		
-	set {_days} to floor({_numUse}/86400)
-	if {_days} > 0:
-		if {_days} > 1:
-			set {_dayStr} to "%{_days}% days "
-		else:
-			set {_dayStr} to "%{_days}% day "
-	else:
-		set {_dayStr} to ""
+function playtimeParse(playtime: number) :: text:		
+	set {_daysAndHours} to "%{_playtime} - mod({_playtime}, 3600)% seconds" parsed as a timespan
+	set {_minutesAndSeconds} to "%mod({_playtime}, 3600)% seconds" parsed as a timespan
+	set {_daysAndHours} to "%{_daysAndHours}%"
+	replace all " and " in {_daysAndHours} with ", "
 	
-	set {_hours} to floor(({_numUse} mod 86400)/3600)
-	if {_hours} > 0:
-		if {_hours} > 1:
-			set {_hourStr} to "%{_hours}% hours "
-		else:
-			set {_hourStr} to "%{_hours}% hour "
-	else:
-		set {_hourStr} to ""
-	
-	set {_mins} to floor(({_numUse} mod 3600)/60)
-	if {_mins} > 0:
-		if {_mins} > 1:
-			set {_minStr} to "%{_mins}% minutes "
-		else:
-			set {_minStr} to "%{_mins}% minute "
-	else:
-		set {_minStr} to ""
-	
-	set {_secs} to ({_numUse} mod 60)
-	if {_secs} > 0:
-		if {_secs} > 1:
-			set {_secStr} to "%{_secs}% seconds"
-		else:
-			set {_secStr} to "%{_secs}% second"
-	else:
-		set {_secStr} to ""
-	
-	return "%{_dayStr}%%{_hourStr}%%{_minStr}%%{_secStr}%"
+	return "%{_daysAndHours}%, %{_minutesAndSeconds}%"
 	
 
 command /playtime <text="%player%"> [<text="1">]:
@@ -90,7 +59,7 @@ command /playtime <text="%player%"> [<text="1">]:
 			loop 10 times:
 				set {_topList::%{_start}%} to "%{_topList::%{_start}%}%" parsed as an integer
 				loop {_values::%{_topList::%{_start}%}%::*}:
-					send "&8[&7%size of {playtime::*} - {_start} + 1%&8] &6%{name.%loop-value-2%}%: &c%playtimeParse({_topList::%{_start}%})%"
+					send "&8[&7%size of {playtime::*} - {_start} + 1%&8] &6%{name::%loop-value-2%}%: &c%playtimeParse({_topList::%{_start}%})%"
 					remove all loop-value-2 from {_values::%{_topList::%{_start}%}%::*}
 					subtract 1 from {_start}
 			stop
@@ -108,18 +77,18 @@ command /playtime <text="%player%"> [<text="1">]:
 				send "&4Player not found."
 				stop
 			
-		set {_numUse} to {playtime::%{_argUUID}%}
+		set {_playtime} to {playtime::%{_argUUID}%}
 
-		if "%{_numUse}%" is "<none>":
+		if "%{_playtime}%" is "<none>":
 			send "&cThe player '%argument 1%' has never joined this server."
 			stop
 		
 		if command sender is console:
-			send "&6%{_arg}%'s playtime:&c %playtimeParse({_numUse})%" to console
+			send "&6%{_arg}%'s playtime:&c %playtimeParse({_playtime})%" to console
 		else if {_arg} is player:
-			send "&6Your playtime:&c %playtimeParse({_numUse})%" to the player
+			send "&6Your playtime:&c %playtimeParse({_playtime})%" to the player
 		else:
-			send "&6%{_arg}%'s playtime:&c %playtimeParse({_numUse})%" to the player
+			send "&6%{_arg}%'s playtime:&c %playtimeParse({_playtime})%" to the player
 			
 every 1 second:
 	loop players:
