@@ -6,6 +6,7 @@ options:
 #= Ensure all worlds have their values and gamerules set appropriately
 on script load:
 	delete {timeUntilRestart}
+	delete {cancelNextRestart}
 	loop worlds:
 		execute console command "mvgamerule logAdminCommands false %loop-value%"
 		execute console command "mvgamerule sendCommandFeedback false %loop-value%"
@@ -19,23 +20,48 @@ on spawn:
 
 
 #= Control automated restarts
+command /cancelrestart:
+	permission: skript.admin
+	trigger:
+		set {cancelNextRestart} to true
+		send "{@ServerPrefix}The next automated restart will be canceled" to the player
+
 every minute:
-	if "%now%" contains "11:55 PM":
+	if "%now%" contains "11:55":
+		{cancelNextRestart} isn't true
 		broadcast "{@ServerPrefix}The server will restart in 5 minutes."
 		send all players title "&3The server will restart in 5 minutes." with subtitle  "" for 2 seconds with 0 ticks fade in and 10 ticks fade out
 		set {timeUntilRestart} to 5 minutes
-	else if "%now%" contains "11:59 PM":
+	else if "%now%" contains "11:59":
+		if {cancelNextRestart} is true:
+			delete {cancelNextRestart}
+			stop
 		broadcast "{@ServerPrefix}The server will restart in 1 minute."
+		loop players:
+			"%loop-player's world%" is "Soulthief"
+			make player execute "ma leave"
+			send "&cYou have been forced to leave the arena to ensure your inventory is not lost due to MobArena." to the loop-player
 		send all players title "&3The server will restart in 1 minute." with subtitle  "" for 2 seconds with 0 ticks fade in and 10 ticks fade out
-		set {timeUntilRestart} to 1 minute
+		if {cancelNextRestart} is true:
+			delete {cancelNextRestart}
+			stop
 		wait 50 seconds
+		if {cancelNextRestart} is true:
+			delete {cancelNextRestart}
+			stop
 		broadcast "{@ServerPrefix}10 seconds until restart, stop all crafting and similar actions!"
 		send all players title "&310 seconds until restart." with subtitle  "&7Stop all crafting and similar actions!" for 2 seconds with 0 ticks fade in and 10 ticks fade out
 		wait 7 seconds
+		if {cancelNextRestart} is true:
+			delete {cancelNextRestart}
+			stop
 		loop 3 times:
 			broadcast "{@ServerPrefix}Restart in %4 - loop-number%..."
 			send all players title "&3Restart in" with subtitle  "&7%4 - loop-number%..." for 2 seconds with 0 ticks fade in and 10 ticks fade out
 			wait 1 second
+		if {cancelNextRestart} is true:
+			delete {cancelNextRestart}
+			stop
 		execute console command "/restart"
 
 
@@ -51,10 +77,14 @@ on command:
 	else if getFreeSpace(player) < 10:
 		cancel event
 		send "&cYou need at least 10 free inventory slots to join a Mob Arena (to hold the potential prizes afterwards!)" to the player
+	else:
+		saveInv(player)
 
 
 #= Keep track of when players were last damaged
-# Used to limit command usage so people can't cheese 
+# Used to limit command usage so people can't cheese
+on script load:
+	delete {lastDamageTime::*}
 on damage of player:
 	set {lastDamageTime::%victim's uuid%} to now
 # Catch command execution to save people from using overly cheesy commands
@@ -76,6 +106,7 @@ on script load:
 on quit:
 	delete {lastChatMessage::%player's uuid%}
 on chat:
+	player doesn't have permission "skript.admin"
 	if {lastChatMessage::%player's uuid%} isn't set:
 		wait 1 tick
 		set {lastChatMessage::%player's uuid%} to message
@@ -91,14 +122,53 @@ command /warpalias <text> <text>:
 	permission: skript.admin
 	trigger:
 		# Ensure that the warp even exists
-		if file existance of "plugins/Essentials/warps/%arg-1%.yml" is true:
+		if file existence of "plugins/Essentials/warps/%arg-1%.yml" is true:
 			set {warpAliases::%arg-2%} to arg-1
 			send "&6Set &c%arg-2%&6 as an alias for warp &c%arg-1%&6." to the player
 		else:
 			send "&cThat warp doesn't exist." to the player
 
-on command "warp":
-	file existance of "plugins/Essentials/warps/%arguments%.yml" is false
+on command:
+	"%command%" is "warp"
+	file existence of "plugins/Essentials/warps/%arguments%.yml" is false
 	{warpAliases::%arguments%} is set
 	cancel event
 	make player execute "warp %{warpAliases::%arguments%}%"
+
+
+#= API functions for saving and restoring player inventories
+function saveInv(p: player):
+	execute console command "saveInv %{_p}%"
+function restoreInv(p: player):
+	execute console command "restoreInv %{_p}%"
+command saveInv [<player=%player%>]:
+	permission: skript.admin
+	trigger:
+		loop 41 times:
+			set {invBackup::%player-argument's uuid%::%loop-number%} to slot loop-number - 1 of player-argument
+		set {invBackup::%player-argument's uuid%::helmet} to amount of player-argument's helmet of player-argument's helmet
+		set {invBackup::%player-argument's uuid%::chestplate} to 1 of player-argument's chestplate
+		set {invBackup::%player-argument's uuid%::leggings} to 1 of player-argument's leggings
+		set {invBackup::%player-argument's uuid%::boots} to 1 of player-argument's boots
+		set {invBackup::%player-argument's uuid%::xp} to player-argument's xp
+		set {invBackup::%player-argument's uuid%::health} to player-argument's health
+		set {invBackup::%player-argument's uuid%::hunger} to player-argument's hunger
+		set {invBackup::%player-argument's uuid%::saturation} to saturation of player-argument
+		set {invBackup::%player-argument's uuid%::exhaustion} to player-argument's exhaustion
+		send "&6Saved inventory of &c%player-argument%&6." to the player
+command restoreInv [<player=%player%>]:
+	permission: skript.admin
+	trigger:
+		loop 41 times:
+			set slot loop-number - 1 of player-argument to {invBackup::%player-argument's uuid%::%loop-number%}
+		set player-argument's helmet to {invBackup::%player-argument's uuid%::helmet}
+		set player-argument's chestplate to {invBackup::%player-argument's uuid%::chestplate}
+		set player-argument's leggings to {invBackup::%player-argument's uuid%::leggings}
+		set player-argument's boots to {invBackup::%player-argument's uuid%::boots}
+		set player-argument's xp to {invBackup::%player-argument's uuid%::xp}
+		set player-argument's health to {invBackup::%player-argument's uuid%::health}
+		set player-argument's hunger to {invBackup::%player-argument's uuid%::hunger}
+		set saturation of player-argument to {invBackup::%player-argument's uuid%::saturation}
+		set player-argument's exhaustion to {invBackup::%player-argument's uuid%::exhaustion}
+		send "&6Restored inventory of &c%player-argument%&6." to the player
+ 
