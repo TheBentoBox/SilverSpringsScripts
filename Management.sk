@@ -28,7 +28,7 @@ command /cancelrestart:
 
 every minute:
 	if "%now%" contains "11:55":
-		{cancelNextRestart} isn't true
+		"%{cancelNextRestart}%" isn't "true"
 		broadcast "{@ServerPrefix}The server will restart in 5 minutes."
 		send all players title "&3The server will restart in 5 minutes." with subtitle  "" for 2 seconds with 0 ticks fade in and 10 ticks fade out
 		set {timeUntilRestart} to 5 minutes
@@ -39,7 +39,7 @@ every minute:
 		broadcast "{@ServerPrefix}The server will restart in 1 minute."
 		loop players:
 			"%loop-player's world%" is "Soulthief"
-			make player execute "ma leave"
+			make loop-player execute "ma leave"
 			send "&cYou have been forced to leave the arena to ensure your inventory is not lost due to MobArena." to the loop-player
 		send all players title "&3The server will restart in 1 minute." with subtitle  "" for 2 seconds with 0 ticks fade in and 10 ticks fade out
 		if {cancelNextRestart} is true:
