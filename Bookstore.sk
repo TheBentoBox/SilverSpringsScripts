@@ -1,0 +1,295 @@
+#= Create a defined list of book genres on load
+on script load:
+	set {bookGenres::*} to "fantasy", "romance", "suspense", "horror", "comedy", "mystery", "informative", "science fiction", "satire", "nonfiction", "fiction", "poetry", "adult", "misc" and "Writing Contest Winners"
+
+
+#= Main inventory click event
+# Used in the bookstore interface for interacting with the menu
+on mor.inventory click:
+	# Main condition
+	"%inventory name of current inventory of player%" contains "Official Bookstore"
+	
+	# Papers and book and quills represent the categories
+	# When they're clicked, the player is made to open the genre represented by that item
+	if type of event-item is paper or book and quill:
+		inventory size of current inventory of player is 36
+		cancel event
+		close player's inventory
+		make player execute "bookstore %uncoloured name of event-item%"
+	
+	# Written books are the actual buyable books
+	else if event-item is a written book:
+		# Extra condition to ensure people can't simulate bookstores easily
+		"%event-item's lore%" contains "&7Costs "
+		
+		cancel event
+		"%event-inventory%" is "inventory of <none>"
+		
+		# Get book info from its NBT
+		set {_author} to "%tag ""author"" of nbt of event-item%"
+		set {_title} to "%tag ""title"" of nbt of event-item%"
+		set {_authorUUID} to {bookstoreUUIDs::%{_author}%}
+		
+		# Don't allow players to buy their own books
+		# Otherwise they could buy their own book and get the money, essentially getting free written books
+		# Not that it's THAT important, but you can trade them for emeralds and such
+		if "%{_authorUUID}%" is "%player's uuid%":
+			close player's inventory
+			send "&cNo duping books via 'buying' your own!" to the player
+			stop
+		
+		# Ensure they can afford it before purchasing
+		if player's balance >= {bookstorePrice::%{_authorUUID}%::%{_title}%}:
+			# Set up item to be a prettier version of it for purchasing
+			set {_lore} to lore of event-item
+			set lore of event-item to "&7by %{name::%{_authorUUID}%}%"
+			
+			# Then, ensure they can hold this new version of the item
+			if player can hold event-item:
+				give 1 of event-item to the player
+				set lore of event-item to "%{_lore}%"
+				playsound("entity.magmacube.jump", "player", player, 1, 0.5)
+				
+				if player's gamemode isn't creative:
+					remove {bookstorePrice::%{_authorUUID}%::%{_title}%} from player's balance
+					execute console command "eco give %{_author}% %{bookstorePrice::%{_authorUUID}%::%{_title}%}%"
+				
+				send "&6Bought &c%{_title}%&6 by &c%{name::%{_authorUUID}%}%&6 for &c%{bookstorePrice::%{_authorUUID}%::%{_title}%}% silver&6." to player
+				add 1 to {bestsellers.books::%{_storedTitle}%}
+				add 1 to {bestsellers.authors::%{_authorUUID}%}
+			# Can't hold the item -- bail out
+			else:
+				close player's inventory
+				send "&cYou don't have enough room to hold that book." to player
+		# Can't PAY for the item -- also bail out
+		else:
+			close player's inventory
+			send "&cYou don't have enough money to buy that book." to player
+			
+	# Redstone block is the quit button
+	else if event-item is redstone block:
+		# Extra conditions, so things don't work if players try to recreate the GUI to do funky stuff
+		"%event-item's name%" is "&cClose" or "&cBack to main"
+		"%event-item's lore%" isn't "<none>" or ""
+		
+		cancel event
+		close player's inventory
+		if "%event-item's name%" is "&cBack to main":
+			make player execute "bookstore"
+
+			
+#= Quick shorthand for listing the genres
+command /genres:
+	trigger:
+		send "&6The registered library book genres are:&c %{bookGenres::*}%" to the player
+
+
+#= Returns sales info about a given author name or book title.
+# This is due for a rewrite since it hasn't been touched much since this script was rewritten to use a GUI.
+command /bestsellers <text> <text>:
+	aliases: bestseller
+	usage: /bestsellers (author|book) <author name|book title> to view sales histore for that author or book. The first argument has to actually be the word 'author' or 'book' to specify which you want to check.
+	trigger:
+		# Checking an author's entire sales history
+		if text-argument-1 contains "author" or "writer":
+			set {_author} to text-argument-2 parsed as an offline player
+			set {_author} to {_author}'s uuid
+			if {bestsellers.authors::%{_author}%} is set:
+				send "&6Author &c%text-argument-2%&6 has sold &c%{bestsellers.authors::%{_author}%}%&6 books." to the player
+			else:
+				send "&cThere is no author registered with that name. They have either never sold a book, or don't exist." to the player
+		
+		# Checking sales history for a specific book
+		else if text-argument-1 contains "book", "title" or "name":
+			{bestsellers.books::%text-argument-2%} is set:
+				send "&6The book titled &c%text-argument-2%&6 has sold &c%{bestsellers.books::%text-argument-2%}%&6 copies." to the player
+			else:
+				send "&cThere is no book registered with that name. It has either never been bought, or doesn't exist." to the player
+		else:
+			send "&cInvalid usage. Use /bestsellers (author|book) <name of author | book title>." to the player
+
+
+#= Root command which is used both to open the main menu and to open submenus from the main menu
+# Players can also open genre submenus directly by putting a genre name as the argument
+command /bookstore [<text="main">]:
+	aliases: books, buybooks
+	usage: /bookstore <genre>. Leaving off a genre will open the main menu. You can see the valid genres with /genres.
+	trigger
+		# Opens the main GUI which has a listing of genre submenus
+		if arg-1 is "main":
+			# Open the main menu and get a count of how many books are stored for each genre
+			open chest with 4 rows named "Official Bookstore" to the player
+			set {_i} to 0
+			loop {bookstoreUUIDs::*}:
+				loop {bookstoreGenres::%loop-value%::*}:
+					add 1 to {_genreCount::%loop-value-2%}
+			
+			# Set up a paper item for each genre, which can be clicked to access that genre's submenu
+			loop {bookGenres::*}:
+				if {_genreCount::%loop-value%} isn't set:
+					set {_genreCount::%loop-value%} to 0
+				# Contest winners category gets hard coded to appear in the center
+				if "%loop-value%" contains "Contest Winners":
+					set slot 13 of current inventory of player to shiny book and quill named "&6%1st char in each word of loop-value to caps%" with lore "&7Registered Books: %{_genreCount::%loop-value%}%"
+				else:
+					set slot {_i} of current inventory of player to paper named "&r%1st char in each word of loop-value to caps%" with lore "&7Registered Books: %{_genreCount::%loop-value%}%"
+					# Add 2 to make them skip slots, looks cooler
+					add 2 to {_i}
+			# Sets up the close button at the bottom
+			set slot 31 of current inventory of player to redstone block named "&cClose" with lore "&7Exit the bookstore"
+		
+		# This means they're opening a submenu
+		else if "%{bookGenres::*}%" contains "%arg-1%":
+			# Create a larger GUI for holding all of the books of that genre
+			open chest with 5 rows named "Official Bookstore: %arg-1%" to the player
+			set {_i} to 0
+			
+			# Loop through all authors and find ones for that genre, then set them up
+			loop {bookstoreUUIDs::*}:
+				loop {bookstoreGenres::%loop-value%::*}:
+					loop-value-2 is arg-1
+					set slot {_i} of current inventory of player to written book with custom nbt "%{bookstore::%loop-value-1%::%loop-index-2%}%"
+					set lore of slot {_i} of current inventory of player to "%lore of slot {_i} of current inventory of player%||&7Costs %{bookstorePrice::%loop-value-1%::%loop-index-2%}% silver"
+					add 1 to {_i}
+					
+			# If we found no saved books for that genre, bail out
+			if {_i} is 0:
+				close player's inventory
+				send "&cThere are no books registered in that genre yet. Why not write one?" to the player
+			# Otherwise, set up the exit button
+			# There's no logical connection between this and {_i} being 0, but we put it here because 
+			# it's unnecessary to do if {_i} is 0 and no books were found
+			else:
+				set slot 40 of current inventory of player to redstone block named "&cBack to main" with lore "&7Return to genre directory"
+		
+		# Otherwise, it's just an invalid genre
+		else:
+			send "&cInvalid genre '%arg-1%'. Valid genres are %{bookGenres::*}%." to the player
+						
+
+#= Admin level command for adding books 
+command /addbook <number> <number> <text>:
+	aliases: registerbook
+	usage: /addbook <commission> <price per copy> <genre>. Commission will be given to the author immediately and automatically via /eco give. You can use /genres to view the available genres for <genre>.
+	permission: skript.admin
+	trigger:
+		# Sanity checks
+		if player's tool isn't a written book:
+			send "&cYou need to be holding a written book." to player
+			stop
+		if "%{bookGenres::*}%" doesn't contain "%arg-3%":
+			send "&cInvalid genre. Valid genres are %{bookGenres::*}%." to the player
+			stop
+	
+		# Get book info
+		set {_author} to "%tag ""author"" of nbt of tool%"
+		set {_title} to "%tag ""title"" of nbt of tool%"
+		
+		set {_authorUUID} to "%{_author}%" parsed as an offline player
+		set {_authorUUID} to {_authorUUID}'s uuid
+		
+		# Check if it's already registered
+		if {bookstore::%{_authorUUID}%::%{_title}%} is set:
+			send "&c%{_title}% by %{_author}% is already stored in the bookstore." to player
+			stop
+		
+		# Update NBT of book so it can't be copied
+		add "{generation:3,HideFlags:32}" to nbt of player's tool
+		set lore of player's tool to "&7by %{_author}%"
+		
+		# Save book info
+		set {bookstore::%{_authorUUID}%::%{_title}%} to "%nbt of tool%"
+		set {bookstoreGenres::%{_authorUUID}%::%{_title}%} to arg-3
+		set {bookstoreUUIDs::%{_author}%} to {_authorUUID}
+		
+		# Fix quote NBT issues on vars
+		replace all "\\""" in {bookstore::%{_authorUUID}%::%{_title}%} with "''"
+		
+		# Save price of book
+		make player execute "eco give %{_author}% %arg-1%"
+		set {bookstorePrice::%{_authorUUID}%::%{_title}%} to arg-2
+		
+		# Final feedback
+		send "&6Book &c%{_title}%&6 by &c%{_author}%&6 saved, selling for &c%arg-2% silver&6 per copy in the genre &c%arg-3%." to player
+
+
+#= Admin command for modifying the details of an already saved book
+# This "keys" books by their title, meaning you must be holding a book with the same title and author as one already stored,
+# which will be used as reference for the one that's meant to be updated. Price, genre, and the book itself can be updated.
+command /editbook [<number=-1>] [<text="keep">]:
+	usage: /editbook <new price> <new genre>
+	permission: skript.admin
+	trigger:
+		# Sanity checks
+		if player's tool isn't a written book:
+			send "&cYou need to be holding a written book." to player
+			stop
+		if "%{bookGenres::*}%" doesn't contain "%arg-2%":
+			# In this case, the new genre is allowed to be "keep" to indicate its genre shouldn't be updated
+			"%arg-2%" isn't "keep"
+			send "&cInvalid genre. Valid genres are %{bookGenres::*}%." to the player
+			stop
+	
+		# Get book info
+		set {_author} to "%tag ""author"" of nbt of tool%"
+		set {_title} to "%tag ""title"" of nbt of tool%"
+		
+		set {_authorUUID} to "%{_author}%" parsed as an offline player
+		set {_authorUUID} to {_authorUUID}'s uuid
+		
+		# Make sure it's one that's registered
+		if {bookstore::%{_authorUUID}%::%{_title}%} isn't set:
+			send "&c%{_title}% by %{_author}% isn't registered in the bookstore." to player
+			stop
+		
+		# Update NBT of book so it can't be copied
+		add "{generation:3,HideFlags:32}" to nbt of player's tool
+		set lore of player's tool to "&7by %{_author}%"
+		
+		# Overwrite the saved book's info with the held one
+		set {bookstore::%{_authorUUID}%::%{_title}%} to "%nbt of tool%"
+		if "%arg-2 %" isn't "keep":
+			set {bookstoreGenres::%{_authorUUID}%::%{_title}%} to arg-2
+		set {bookstoreUUIDs::%{_author}%} to {_authorUUID}
+		
+		# Fix quote NBT issues on vars
+		replace all "\\""" in {bookstore::%{_authorUUID}%::%{_title}%} with "''"
+		
+		# Update price of book with new price
+		if arg-1 isn't -1:
+			set {bookstorePrice::%{_authorUUID}%::%{_title}%} to arg-1
+		
+		# Final feedback
+		send "&6Book &c%{_title}%&6 by &c%{_author}%&6 updated, selling for &c%{bookstorePrice::%{_authorUUID}%::%{_title}%}% silver&6 per copy in the genre &c%{bookstoreGenres::%{_authorUUID}%::%{_title}%}%." to player
+
+
+#= Admin level command to delete a book from the bookstore system
+# TODO: Needs updating so it will also delete the book's sales history variables.
+# Should probably also subtract that number from the author's overall history.
+command /deletebook:
+	permission: skript.admin
+	trigger:
+		# Sanity check to ensure they're holding a written book
+		if player's tool isn't a written book:
+			send "&cYou need to be holding a written book." to player
+			stop
+	
+		# Get book info
+		set {_author} to "%tag ""author"" of nbt of tool%"
+		set {_title} to "%tag ""title"" of nbt of tool%"
+		
+		set {_authorUUID} to "%{_author}%" parsed as an offline player
+		set {_authorUUID} to {_authorUUID}'s uuid
+		
+		# Make sure it's registered
+		if {bookstore::%{_authorUUID}%::%{_title}%} isn't set:
+			send "&c%{_title}% by %{_author}% isn't registered in the bookstore." to player
+			stop
+		
+		# Clear book info
+		delete {bookstore::%{_authorUUID}%::%{_title}%}
+		delete {bookstoreGenres::%{_authorUUID}%::%{_title}%}
+		delete {bookstorePrice::%{_authorUUID}%::%{_title}%}
+		
+		# Final feedback
+		send "&6Book &c%{_title}%&6 by &c%{_author}%&6 removed from the bookstore." to player
