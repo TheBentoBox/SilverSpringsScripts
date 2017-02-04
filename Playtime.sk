@@ -1,12 +1,3 @@
-function playtimeParse(playtime: number) :: text:		
-	set {_daysAndHours} to "%{_playtime} - mod({_playtime}, 3600)% seconds" parsed as a timespan
-	set {_minutesAndSeconds} to "%mod({_playtime}, 3600)% seconds" parsed as a timespan
-	set {_daysAndHours} to "%{_daysAndHours}%"
-	replace all " and " in {_daysAndHours} with ", "
-	
-	return "%{_daysAndHours}%, %{_minutesAndSeconds}%"
-	
-
 command /playtime <text="%player%"> [<text="1">]:
 	executable by: players and console
 	trigger:
@@ -59,7 +50,7 @@ command /playtime <text="%player%"> [<text="1">]:
 			loop 10 times:
 				set {_topList::%{_start}%} to "%{_topList::%{_start}%}%" parsed as an integer
 				loop {_values::%{_topList::%{_start}%}%::*}:
-					send "&8[&7%size of {playtime::*} - {_start} + 1%&8] &6%{name::%loop-value-2%}%: &c%playtimeParse({_topList::%{_start}%})%"
+					send "&8[&7%size of {playtime::*} - {_start} + 1%&8] &6%{name::%loop-value-2%}%: &c%secondsToTimespan({_topList::%{_start}%})%"
 					remove all loop-value-2 from {_values::%{_topList::%{_start}%}%::*}
 					subtract 1 from {_start}
 			stop
@@ -84,11 +75,11 @@ command /playtime <text="%player%"> [<text="1">]:
 			stop
 		
 		if command sender is console:
-			send "&6%{_arg}%'s playtime:&c %playtimeParse({_playtime})%" to console
+			send "&6%{_arg}%'s playtime:&c %secondsToTimespan({_playtime})%" to console
 		else if {_arg} is player:
-			send "&6Your playtime:&c %playtimeParse({_playtime})%" to the player
+			send "&6Your playtime:&c %secondsToTimespan({_playtime})%" to the player
 		else:
-			send "&6%{_arg}%'s playtime:&c %playtimeParse({_playtime})%" to the player
+			send "&6%{_arg}%'s playtime:&c %secondsToTimespan({_playtime})%" to the player
 			
 every 1 second:
 	loop players:

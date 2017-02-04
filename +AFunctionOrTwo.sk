@@ -126,9 +126,50 @@ function sendWithPerms(msg: text, perm: text):
 		if loop-player has permission "%{_perm}%":
 			send "%{_msg}%" to loop-player
 
+# @desc:			Makes the given entity look at a specific location.
+# @params:	e: The entity that will do the looking.
+#						loc: The location which the entity should look towards.
+function makeLook(e: living entity, loc: location):
+	set {_xD} to {_loc}'s x location - {_e}'s x location
+	set {_yD} to {_loc}'s y location - {_e}'s y location
+	set {_zD} to {_loc}'s z location - {_e}'s z location
+	set {_yaw} to atan2({_xD}, {_zD}) - 90
+	set {_newLoc} to {_e}'s location
+	set yaw of {_newLoc} to {_yaw}
+	
+	set {_adj2} to ({_xD}*{_xD}) + ({_zD}*{_zD})
+	set {_parallel} to sqrt({_adj2})
+	set {_pitch} to atan2({_yD}, {_parallel}) - 90
+	set pitch of {_newLoc} to {_pitch}
+	
+	teleport {_e} to {_newLoc}
+	
+# @desc:			Takes a number in seconds and returns it as a presentable time string.
+#						e.g. An arg of 123 would return "2 minutes and 3 seconds"
+# @params:	seconds: The number of seconds to parsed into the timespan
+# @returns:		The presentable time as a string.
+function secondsToTimespan(seconds: number) :: text:
+	set {_daysAndHours} to "%{_seconds} - mod({_seconds}, 3600)% seconds" parsed as a timespan
+	set {_minutesAndSeconds} to "%mod({_seconds}, 3600)% seconds" parsed as a timespan
+	set {_daysAndHours} to "%{_daysAndHours}%"
+	replace all " and " in {_daysAndHours} with ", "
+	
+	if "%{_daysAndHours}%" is "0 seconds":
+		return "%{_minutesAndSeconds}%"
+	else:
+		return "%{_daysAndHours}%, %{_minutesAndSeconds}%"
+
 #function logBlockBreak(p: player, loc: location, typeBefore: integer, dataBefore: integer):
 #	set {_test} to return of method "queueBlockBreak" with params "%{_p}'s uuid%", {_loc}, {_typeBefore} and {_dataBefore} in class "de.diddiz.LogBlock.Consumer"
 #	send "%{_tesT}%" to {_p}
 #	
 #function logKill(a: entity, v: entity):
 #	call method "queueKill" with params {_a} and {_v} in class "de.diddiz.LogBlock.Consumer"
+#function blockBreak(p: player, loc: location, oldID: integer, oldData: integer):
+#	set {_test} to return of method "actorFromString" with params "%{_p}%" in class "de.diddiz.LogBlock.Actor"
+#	#call function "queueBlockBreak" with params {_p}, {_oldID} and {_oldData} in class "main.java.de.diddiz.LogBlock.Consumer"
+#	send "%{_test}%" to {_p}
+#command /blockbreak <integer> <integer>:
+#	permission: skript.admin
+#	trigger:
+#		blockBreak(player, target block's location, arg-1, arg-2)

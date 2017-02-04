@@ -1,0 +1,144 @@
+#= Elytramode allows you to buy forced elytra flight, where you can glide around even
+# while faceplanting the ground or not wearing an elytra. #FunForTheWholeFamily
+
+#= Main command
+# Used to toggle elytra states for players, admins can target other people.
+command /elytramode [<player=%player%>]:
+	aliases: elytra, e
+	trigger:
+		# Get an appropriate greeting for the messages below ("You have x" vs. "%player% has x")
+		if player-argument is player:
+			set {_target} to "You have"
+		else:
+			# Catch non-admins here
+			if player doesn't have permission "skript.admin":
+				send "&cYou can only toggle your own elytra state." to the player
+				stop
+			set {_target} to "%player-argument% has"
+		
+		# Catch people without time left first
+		if {elytraModeTime::%player-argument's uuid%} isn't set:
+			send "&c%{_target}% no elytra mode time bought!" to the player
+		else if {elytraModeTime::%player-argument's uuid%} <= 0:
+			# Cleanup if they somehow got left with their var set but no time left
+			delete {elytraModeTime::%player-argument's uuid%}
+			send "&c%{_target}% no elytra mode time bought!" to the player
+		# Activation happens here
+		else:
+			# Not set means we activate
+			# We use a separate variable for if the state is active so we can 
+			# use it to cancel the game automatically toggling it back off
+			if {elytraModeActive::%player-argument's uuid%} isn't set:
+				set {elytraModeActive::%player-argument's uuid%} to true
+				set elytra flight state of player-argument to true
+				send "&6Activated elytra mode." to the player-argument
+				set action bar of player-argument to "&6Elytra mode time: &c%secondsToTimespan({elytraModeTime::%player-argument's uuid%})%"
+			else:
+				delete {elytraModeActive::%player-argument's uuid%}
+				send "&6Deactivated elytra mode." to the player-argument
+				set elytra flight state of player-argument to false
+				set action bar of player-argument to ""
+
+#= Secondary command for checking a player's elytra mode time
+# Defaults to self
+command /elytratime [<offline player=%player%>]:
+	trigger:
+		if {elytraModeTime::%offline player-argument's uuid%} is set:
+			set {_numUse} to {elytraModeTime::%offline player-argument's uuid%}
+			set {_hours} to ({_numUse} mod 86400)
+			set {_hours} to floor({_hours}/3600)
+			set {_hours} to ({_hours} > 0 ? "%{_hours}% hour(s) " : "")
+			if offline player-argument is player:
+				send "&6You have &c%secondsToTimespan({elytraModeTime::%offline player-argument's uuid%})%&6 of elytra mode time left."
+			else:
+				send "&c%offline player-argument%&6 has &c%secondsToTimespan({elytraModeTime::%offline player-argument's uuid%})%&6 of elytra mode time left."
+		else:
+			if offline player-argument is player:
+				send "&cYou currently do not have any elytra mode time bought."
+			else:
+				send "&c%offline player-argument% currently does not have any elytra mode time bought."
+
+#= Admin command for forcibly setting a player's elytra mode time
+command /elytraset <offline player> <integer>:
+	permission: skript.admin
+	trigger:
+		set {elytraModeTime::%arg 1's uuid%} to floor(argument 2)
+		send "&6Set elytra mode time of &c%offline player-argument%&6 to &c%arg 2% second(s)&6."
+
+#= Admin command for forcibly clearing and ending a player's elytra mode time
+command /elytraend <player>:
+	permission: skript.admin
+	trigger:
+		if {elytraModeTime::%player-argument's uuid%} is set:
+			send "&cYour elytra mode time has ended." to player-argument
+			set player-argument's elytra flight state to false
+			apply resistance 5 to player-argument for 10 seconds
+			delete {elytraModeTime::%player-argument's uuid%}
+			send "&6Forcefully ended elytra mode time of &c%player-argument%&6."
+		else:
+			send "&4That player doesn't have any elytra mode time bought."
+
+#= Core event -- cancels the toggling off of elytra states for people with the mode active
+on elytra fly toggle:
+	elytra fly state of event-entity is true
+	{elytraModeActive::%event-entity's uuid%} is true
+	cancel event
+
+#= Prevent players with elytra mode active from having their elytras damaged
+# Secondary, but important
+on item damage:
+	event-item is elytra
+	{elytraModeActive::%player's uuid%} is true
+	cancel event
+
+#= Make sure people don't get stuck with their mode active
+on join:
+	delete {elytraModeActive::%player's uuid%}
+
+#= Toggle off elytra mode for people when they go afk
+# Prevents them from wasting bought time and getting frustrated
+on afk toggle:
+	player's gamemode is survival
+	{elytraModeActive::%player's uuid%} is true
+	delete {elytraModeActive::%player's uuid%}
+	set player's elytra flight state to false
+	set action bar of player to ""
+
+#= Core loop
+# Keeps track of elytra time, sends warnings, ends time when they run out, etc.
+every 1 second:
+	loop players:
+		# Conditions to only affect relevant players
+		{elytraModeActive::%loop-player's uuid%} is true
+		loop-player's game mode is survival
+		
+		# Turn off elytramode for people when they're in certain states (flying or swimming)
+		if {swimming::%loop-player's uuid%} is true:
+			delete {elytraModeActive::%loop-player's uuid%}
+		else if flight mode of loop-player is true:
+			delete {elytraModeActive::%loop-player's uuid%}
+		
+		# They're safe to use elytramode, so...
+		else:
+			# If they DO have any time, send displays and warnings
+			if {elytraModeTime::%loop-player's uuid%} > 0:
+				# Main display is as an action bar
+				set action bar of loop-player to "&6Elytra mode time: &c%secondsToTimespan({elytraModeTime::%loop-player's uuid%})%"
+		
+				# At certain key intervals, warnings are sent to chat directly
+				if {elytraModeTime::%loop-player's uuid%} is 60:
+					send "&cYour elytra mode runs out in 1 minute." to loop-player
+				else if {elytraModeTime::%loop-player's uuid%} is 10:
+					send "&cYour elytra mode runs out in 10 seconds. You should land." to loop-player
+				else if {elytraModeTime::%loop-player's uuid%} mod 600 is 0:
+					send "&6You have &c%ceil({elytraModeTime::%loop-player's uuid%}/60)%&6 minutes of elytra mode left." to loop-player
+				
+				# Subtract from remaining time afterwards so the display doesn't show the "0 seconds" loop iteration
+				subtract 1 from {elytraModeTime::%loop-player's uuid%}
+			# Finally, they're out of time: cleanup
+			else:
+				send "&cYour elytra mode time has ended." to loop-player
+				set loop-player's elytra flight state to false
+				apply resistance 5 to loop-player for 10 seconds
+				delete {elytraModeTime::%loop-player's uuid%}
+				delete {elytraModeActive::%loop-player's uuid%}
