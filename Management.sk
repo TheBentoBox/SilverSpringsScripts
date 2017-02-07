@@ -172,3 +172,10 @@ command restoreInv [<player=%player%>]:
 		set player-argument's exhaustion to {invBackup::%player-argument's uuid%::exhaustion}
 		send "&6Restored inventory of &c%player-argument%&6." to the player
  
+ 
+ #= Make mcMMO party chat messages get sent to console
+ # They used to, and while we don't like to look at direct 1-on-1 messages, larger groups of
+ # problem players tend to talk in parties a lot, so these messages are important to see.
+on mcmmo party chat:
+	send "[P]{%event-party%}(%event-player's display name%) %event-string%" to console
+ 
