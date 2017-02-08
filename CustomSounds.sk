@@ -37,6 +37,10 @@ on inventory click:
 on drop:
 	playsound("entity.chicken.egg", "player", player, 0.2, random number between 0.65 and 0.75)
 
+#= Re-add the tool breaking sound since it 
+on tool break:
+	playsound("entity.item.break", "player", player)
+
 
 
 #============#
@@ -155,7 +159,8 @@ on right click on cow:
 
 #= Elytra activate
 on elytra glide toggle:
-	block at location of player isn't water block
+	{swimming::%player's uuid%} isn't set
+	{elytraModeActive::%player's uuid%} isn't set
 	player's chestplate is elytra
 	if elytra glide state of player is false:
 		playsound("entity.enderdragon.flap", "master", player, 0.25, 0.5)
