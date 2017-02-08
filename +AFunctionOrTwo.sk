@@ -62,7 +62,7 @@ function decorativeItemDrop(loc: location, item: item, randomOffset: number = 1.
 	add random number between -1*{_randomOffset} and {_randomOffset} to {_loc}'s z location
 	drop {_item} at {_loc}
 	loop dropped items in radius 2 of {_loc}'s location:
-		items within loop-entity is {_item}
+		items within entity loop-entity is {_item}
 		add "{PickupDelay:32767,Age:%6000 - {_itemDuration}%}" to nbt of loop-entity
 
 # @desc:			Tells you whether or not a world is a normal SSS survival world (one of the main worlds or a resource world).
@@ -115,6 +115,9 @@ function getFreeSpace(p: player, countArmorSlots: boolean = false) :: number:
 			subtract 1 from {_space}
 		if "%{_p}'s boots%" is "<none>":
 			subtract 1 from {_space}
+		
+	if "%{_p}'s offhand%" is "0 air":
+		subtract 1 from {_space}
 	
 	return {_space}
 
