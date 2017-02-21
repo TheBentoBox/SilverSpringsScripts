@@ -187,45 +187,55 @@ command /nbt [<text="get">] [<text="">] [<text="">]:
 	trigger:
 		# Send an error so they know it doesn't think they're looking at something
 		# (Sometimes it can feel like somethings you're target but you're not actually hovering its hitbox)
-		if player's target isn't set:
-			send "&cNo target." to the player
+		if check [player's target isn't set]->[player's tool is air]:
+			"%text-argument-1%%text-argument-2%%text-argument-3%" isn't "get"
+			send "&cNo target and no held item." to the player
 			stop
 		
+		if player's target is set:
+			set {_targ} to player's target
+			set {_nbt} to nbt of player's target
+		else if player's tool isn't air:
+			set {_targ} to type of player's tool
+			set {_nbt} to nbt of player's tool
+		
 		# If the first argument is "get", retrieve the entity's NBT (or a specific tag if one is asked for)
-		if text-argument-1 is "get":
+		if check [text-argument-1 is "get"]->[{_nbt} is set]:
 			# If no arg is given, just send all of its NBT
 			if text-argument-2 is "":
-				send "&6NBT of %target%:&c %nbt of target%" to the player
+				send "&6NBT of %{_targ}%:&f %{_nbt}%" to the player
 			# Otherwise, try to send the specific tag given
 			else:
-				set {_tag} to tag "%text-argument-2%" of nbt of target
+				set {_tag} to tag "%text-argument-2%" of {_nbt}
 				
 				# Catch if the tag wasn't found on the mob
 				if {_tag} isn't set:
-					send "&cTag '%text-argument-2%' not found on the %target%. Remember that tags are case-sensitive, and that even real tags can sometimes not exist on an entity (which equates to it being ""false"")." to the player
+					send "&cTag '%text-argument-2%' not found on the %{_targ}%. Remember that tags are case-sensitive, and that even real tags can sometimes not exist (which equates to it being ""false"")." to the player
 				else:
-					send "&6Value for %text-argument-2% of %target%:&c %{_tag}%" to the player
+					send "&6Value for %text-argument-2% of %{_targ}%:&f %{_tag}%" to the player
 		
 		# If it's "set", set tag text-argument-2 to value text-argument-3
 		else if text-argument-1 is "set":
 			if check [text-argument-2 isn't ""]->[text-argument-3 isn't ""]:
-				add "{%text-argument-2%:%text-argument-3%}" to nbt of target
-				send "&6Set tag %text-argument-2% of %target% to&c %text-argument-3%" to the player
+				if {_targ} is type of player's tool:
+					add "{%text-argument-2%:%text-argument-3%}" to nbt of player's tool
+				else:
+					add "{%text-argument-2%:%text-argument-3%}" to nbt of target
+				send "&6Set tag %text-argument-2% of %{_targ}% to&c %text-argument-3%" to the player
 			else:
 				send "&cBoth a tag and a value must be provided, e.g. /nbt set Health 3." to the player
 		
 		# If it's "add", just add the arguments to its NBT (assume they wrote it properly)
 		else if text-argument-1 is "add":
-			if text-argument-3 is "":
-				add "{%text-argument-2%}" to nbt of target
-				send "&6Attempted to add &c{%text-argument-2%}&6 to nbt of %target%." to the player
+			if {_targ} is type of player's tool:
+				add "{%text-argument-2% %text-argument-3%}" to nbt of player's tool
 			else:
 				add "{%text-argument-2% %text-argument-3%}" to nbt of target
-				send "&6Attempted to add &c{%text-argument-2% %text-argument-3%}&6 to nbt of %target%." to the player
+			send "&6Attempted to add &c{%text-argument-2% %text-argument-3%}&6 to nbt of %{_targ}%." to the player
 		
 		else:
 			send "&cUsage is /nbt [get|set|add] [values] while looking at an entity:" to the player
 			send "&cget [tag]:&7 Retuns the value of 'tag', or all NBT if a tag isn't provided." to the player
 			send "&cset <tag> <value>:&7 Sets 'tag' to 'value' on the target." to the player
 			send "&cadd <nbt>:&7 Adds everything after 'add' as NBT to the target, curly braces not required. e.g. /nbt add Health:3, NoAI:1, Silent:1" to the player
-
+			stop
