@@ -114,7 +114,7 @@ command /bestsellers <text> <text>:
 command /bookstore [<text="main">]:
 	aliases: books, buybooks
 	usage: /bookstore <genre>. Leaving off a genre will open the main menu. You can see the valid genres with /genres.
-	trigger
+	trigger:
 		# Opens the main GUI which has a listing of genre submenus
 		if arg-1 is "main":
 			# Open the main menu and get a count of how many books are stored for each genre
