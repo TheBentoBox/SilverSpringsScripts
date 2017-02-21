@@ -120,6 +120,7 @@ on chat:
 #= Command to add warp aliases
 command /warpalias <text> <text>:
 	permission: skript.admin
+	usage: /warpalias <warp to add alias for> <new alias>
 	trigger:
 		# Ensure that the warp even exists
 		if file existence of "plugins/Essentials/warps/%arg-1%.yml" is true:
@@ -178,4 +179,53 @@ command restoreInv [<player=%player%>]:
  # problem players tend to talk in parties a lot, so these messages are important to see.
 on mcmmo party chat:
 	send "[P]{%event-party%}(%event-player's display name%) %event-string%" to console
- 
+
+
+#= Useful	shorthand commands for interacting with entity NBT tags without needing to use inline commands.
+command /nbt [<text="get">] [<text="">] [<text="">]:
+	permission: skript.admin
+	trigger:
+		# Send an error so they know it doesn't think they're looking at something
+		# (Sometimes it can feel like somethings you're target but you're not actually hovering its hitbox)
+		if player's target isn't set:
+			send "&cNo target." to the player
+			stop
+		
+		# If the first argument is "get", retrieve the entity's NBT (or a specific tag if one is asked for)
+		if text-argument-1 is "get":
+			# If no arg is given, just send all of its NBT
+			if text-argument-2 is "":
+				send "&6NBT of %target%:&c %nbt of target%" to the player
+			# Otherwise, try to send the specific tag given
+			else:
+				set {_tag} to tag "%text-argument-2%" of nbt of target
+				
+				# Catch if the tag wasn't found on the mob
+				if {_tag} isn't set:
+					send "&cTag '%text-argument-2%' not found on the %target%. Remember that tags are case-sensitive, and that even real tags can sometimes not exist on an entity (which equates to it being ""false"")." to the player
+				else:
+					send "&6Value for %text-argument-2% of %target%:&c %{_tag}%" to the player
+		
+		# If it's "set", set tag text-argument-2 to value text-argument-3
+		else if text-argument-1 is "set":
+			if check [text-argument-2 isn't ""]->[text-argument-3 isn't ""]:
+				add "{%text-argument-2%:%text-argument-3%}" to nbt of target
+				send "&6Set tag %text-argument-2% of %target% to&c %text-argument-3%" to the player
+			else:
+				send "&cBoth a tag and a value must be provided, e.g. /nbt set Health 3." to the player
+		
+		# If it's "add", just add the arguments to its NBT (assume they wrote it properly)
+		else if text-argument-1 is "add":
+			if text-argument-3 is "":
+				add "{%text-argument-2%}" to nbt of target
+				send "&6Attempted to add &c{%text-argument-2%}&6 to nbt of %target%." to the player
+			else:
+				add "{%text-argument-2% %text-argument-3%}" to nbt of target
+				send "&6Attempted to add &c{%text-argument-2% %text-argument-3%}&6 to nbt of %target%." to the player
+		
+		else:
+			send "&cUsage is /nbt [get|set|add] [values] while looking at an entity:" to the player
+			send "&cget [tag]:&7 Retuns the value of 'tag', or all NBT if a tag isn't provided." to the player
+			send "&cset <tag> <value>:&7 Sets 'tag' to 'value' on the target." to the player
+			send "&cadd <nbt>:&7 Adds everything after 'add' as NBT to the target, curly braces not required. e.g. /nbt add Health:3, NoAI:1, Silent:1" to the player
+
