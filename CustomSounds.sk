@@ -41,6 +41,10 @@ on drop:
 on tool break:
 	playsound("entity.item.break", "player", player)
 
+#= Allow players to hear their own swapping sound
+on offhand switch:
+	playsound("item.armor.equip_generic", "player", player, 1, 1, "%player%")
+
 
 
 #============#
