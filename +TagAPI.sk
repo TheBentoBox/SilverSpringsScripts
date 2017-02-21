@@ -12,38 +12,21 @@
 # @params:	entityToTag: which entitiy to add the tag to
 #						tag: which tag to add to entityToTag
 function addTag(entityToTag: entity, tag: text):
-	set {_t} to "%tag ""Tags"" of nbt of {_entityToTag}%"
-	if "%{_t}%" is "<none>":
-		set {_t} to "[]"
-	set {_l} to -1 + length of {_t}
-	set {_t} to first {_l} characters of "%{_t}%"
-	add "{Tags:%{_t}%,%{_tag}%]}" to nbt of {_entityToTag}
+	add "%{_tag}%" to scoreboard tag of {_entityToTag}
 
 
 # @desc:			Removes a tag from an entity.
 # @params:	entityToUntag: which entity to remove the tag from
 #						tag: which tag to remove from entityToUntag
 function removeTag(entityToUntag: entity, tag: text):
-	set {_t} to "%tag ""Tags"" of nbt of {_entityToUntag}%"
-	replace all ":""%{_tag}%""," and ":""%{_tag}%""" in {_t} with ""
-	if length of {_t} <= 3:
-		add "{Tags:[]}" to nbt of {_entityToUntag}
-	else:
-		add "{Tags:%{_t}%}" to nbt of {_entityToUntag}
+	remove "%{_tag}%" from scoreboard tag of {_entityToUntag}
 
 
 # @desc: 		Gets a list of all of the scoreboard tags stored on a specific entity
 # @params: 	entityToCheck: the entity whose scoreboard tags should be retrieved
 # @returns: 	A Skript list of all of the scoreboard tags on the entity as texts
 function getTags(entityToCheck: entity) :: texts:
-	set {_tags} to "%tag ""Tags"" of nbt of {_entityToCheck}%"
-	set {_tags::*} to {_tags} split at ""","
-	loop {_tags::*}:
-		set {_val} to loop-value
-		replace all "[", "]" and """" in {_val} with ""
-		set {_valSplit::*} to {_val} parsed as "%number%:%text%"
-		add {_valSplit::2} to {_tagsFixed::*}
-	return {_tagsFixed::*}
+	return scoreboard tag of {_entityToCheck}
 
 	
 # @desc:			Tells you whether or not the provided entity has the provided tag. This will not return false 
@@ -66,8 +49,8 @@ function hasTag(entityToCheck: entity, tag: text) :: boolean:
 # @params:	entityToCheck: which entitiy to check for tags
 #						tag: which key tag to check entityToCheck for
 # @returns:		True if entityToCheck has the tag, false otherwise.
-function hasKeyValueTag(entityToCheck: entity, tag: text) :: boolean:
-	if "%tag ""Tags"" of nbt of {_entityToCheck}%" contains ":""%{_tag}%=":
+function hasKeyValueTag(entityToCheck: entity, key: text) :: boolean:
+	if "%tag ""Tags"" of nbt of {_entityToCheck}%" contains ":""%{_key}%=":
 		return true
 	else:
 		return false
