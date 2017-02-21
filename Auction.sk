@@ -277,7 +277,8 @@ command /auction [<text="current">] [<number=100>] [<number=100>] [<number=1>] [
 				set {auction::%player's uuid%::itemType} to type of player's tool
 				send "{@Prefix} Your auction for {@Color2}%type of player's tool%{@Color1} has been queued. You are position {@Color2}%size of {auction::queue::*} + 1%{@Color1} in the queue." to the player
 				remove {_amt} of player's tool from player's inventory
-				add player's uuid to {auction::queue::*}
+				set {auction::queue::%{auctionQueueNumber}%} to player's uuid
+				add 1 to {auctionQueueNumber}
 				if {auction::current} isn't set:
 					runAuctions()
 
