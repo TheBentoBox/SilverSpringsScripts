@@ -214,3 +214,30 @@ on chunk generate:
 			loop-block is magma block
 			block 1 meter below loop-block isn't air
 			@noupdate::set loop-block to lava
+
+
+on chunk generate:
+	"%event-world%" contains "resource" and "_end"
+	
+	chance of 0.5%
+	
+	set {_chunk} to "%event-chunk%"
+	replace all "(" with "" in {_chunk}
+	replace all ")" with "" in {_chunk}
+	set {_var::*} to {_chunk} parsed as "chunk %number%,%number% of %text%"
+	set {_x} to {_var::1} * 16
+	set {_z} to {_var::2} * 16
+	set {_x} to {_x}-1
+	set {_z} to {_z}-1
+	
+	abs({_x}) > 500
+		
+	set {_loc} to location at ({_x} + random integer between 0 and 15), 255, ({_z} + random integer between 0 and 15) in event-world
+	set {_loc} to location of highest solid block at {_loc}
+	set {_session} to new edit session in event-world with limit -1
+
+	if block 1 meter below {_loc} is ender stone:
+		add (random integer between -25 and 10) to {_loc}'s y location
+		paste schematic "plugins/WorldEdit/schematics/EndObsidianPillar" at {_loc} using editsession {_session} without air
+		spawn an ender crystal at location 35 meters above {_loc}
+		add "{ShowBottom:0b}" to nbt of last spawned ender crystal
