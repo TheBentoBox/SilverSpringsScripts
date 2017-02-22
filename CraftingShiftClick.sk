@@ -1,0 +1,58 @@
+#== Detects shift clicking while in crafting tables to allow players to shove stuff into the table itself
+# By: Mr_Simba
+# Requirements:
+#		- Skript dev20 or above (Bensku's)
+#		- Skellett
+#		- TuSKe (for max stack size)
+
+
+#= The only event check necessary
+on inventory click:
+	#= Main conditions
+	# Inventory type is obvious, from Skellett, lets me check if they're in a proper workbench
+	# Clicked raw slot (also Skellett) gets the raw slot within that entire inventory instance -- each slot is a unique number
+		# This lets me differentiate slot 1 of them vs. slot 1 of the workbench, because they instead use different numbers with this expression
+		# Slots 0-9 are the raw slots of the workbench while you're in it, so above that means they clicked their inventory
+	# Click type again obvious enough, Skellett, but uses vanilla Skript with Bensku's edit, checks for shift click type
+	# Then just make sure they even clicked anything to begin
+	"%inventory type of current inventory of player%" is "WORKBENCH"
+	clicked raw slot > 9
+	click type is left mouse button with shift
+	clicked item isn't air
+	
+	# Parse this once separately because it speeds up the script's load time noticeably
+	set {_max} to max stack size of clicked item
+	
+	# First, loop over the crafting slots to find the same item type to stack it with familiars
+	# e.g. If shift clicking a piece of wheat in, it should try to stack with other wheat first
+	loop 9 times:
+		# Grab the item, then check if it exactly matches the item we clicked
+		set {_item} to slot loop-number of current inventory of player
+		1 of {_item} is 1 of clicked item
+		
+		# Compare how many the combined stack total would be against the max stack size of that item type
+		set {_diff} to amount of {_item} + amount of clicked item - {_max}
+		
+		# If this difference <= 0, it means them combined wouldn't exceed the max stack size
+		# That being the case, we can just stack them together and stop
+		if {_diff} <= 0:
+			cancel event
+			set {_amt} to amount of {_item} + amount of clicked item
+			set slot loop-number of current inventory of player to {_amt} of {_item}
+			set clicked item to air
+			stop
+		# Otherwise, we need to just fill up the looped stack, then leave the remainder (the diff we calculated) behind
+		# We don't stop so that it will continue looping to allow the remainder to fill more slots
+		else:
+			cancel event
+			set slot loop-number of current inventory of player to {_max} of {_item}
+			set clicked item to {_diff} of clicked item
+	
+	# Then, we loop again, this time just finding an empty slot to drop it in (if any exist)
+	loop 9 times:
+		set {_item} to slot loop-number of current inventory of player
+		if {_item} is air:
+			cancel event
+			set slot loop-number of current inventory of player to clicked item
+			set clicked item to air
+			stop
