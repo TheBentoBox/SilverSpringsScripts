@@ -239,3 +239,21 @@ command /nbt [<text="get">] [<text="">] [<text="">]:
 			send "&cset <tag> <value>:&7 Sets 'tag' to 'value' on the target." to the player
 			send "&cadd <nbt>:&7 Adds everything after 'add' as NBT to the target, curly braces not required. e.g. /nbt add Health:3, NoAI:1, Silent:1" to the player
 			stop
+
+
+#= Simple command to try to check the owner of a mob
+# Prioritizes the vanilla owner tag, then mine
+command /owner:
+	trigger:
+		if player's target isn't set:
+			send "&cYou aren't looking at anything." to the player
+		else:
+			set {_ownerTag} to tag "OwnerUUID" of nbt of player's target
+			if {_ownerTag} isn't set:
+				hasKeyValueTag(player's target, "Owner") is true
+				set {_ownerTag} to getKeyValueTag(player's target, "Owner")
+			
+			if {_ownerTag} is set:
+				send "&6That %target% is owned by &c%{name::%{_ownerTag}%}%&6." to the player
+			else:
+				send "&6That %target% is unprotected." to the player
