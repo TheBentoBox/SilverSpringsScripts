@@ -1,7 +1,7 @@
 #== Register custom recipes
-on script load:
+#on script load:
 	# Allow Evoker drop to be crafted into an extra totem
-	register new shapeless recipe for totem of undying using air, air, air, air, {item.DustyEmerald}, air, air, wheat, air
+	#register new shapeless recipe for totem of undying using air, air, air, air, {item.DustyEmerald}, air, air, wheat, air
 
 
 #== Adding rare items to loot tables
@@ -54,4 +54,6 @@ on death of elder guardian:
 	drop 1 of {item.TwinklingSeaCrystals} at the victim
 on death of wither:
 	isASurvivalWorld(victim's world) is true
-	drop 1 of {item.WitheredHeart} at the victim
+	set {_loc} to victim's location
+	wait 0.5 seconds
+	drop 1 of {item.WitheredHeart} at {_loc}
