@@ -15,7 +15,7 @@ command /togglesounds <text>:
 
 
 #============#
-#		Inventory
+#		Player Inventory
 #============#
 #= Inventory clicking
 on inventory click:
@@ -44,6 +44,26 @@ on tool break:
 #= Allow players to hear their own swapping sound
 on offhand switch:
 	playsound("item.armor.equip_generic", "player", player, 1, 1, "%player%")
+
+
+
+#============#
+#		Block Inventories
+#============#
+# Makes chests play a creaky sound for negative feedback when they can't be opened
+on right click on chest or trapped chest:
+	player's target block is clicked block
+	wait 1 tick
+	"%current inventory of player%" is "inventory of %player%"
+	playsound("block.chest.open", "block", clicked block, 0.5, 2)
+# Adds sounds for opening hoppers, dispensers, or droppers
+on right click on hopper, dropper or dispenser:
+	wait 1 tick
+	if "%current inventory of player%" contains "Hopper":
+		playsound("block.iron_trapdoor.open", "block", clicked block, 1, 0)
+	else if "%current inventory of player%" contains "Dropper" or "Dispenser":
+		playsound("block.wooden_trapdoor.open", "block", clicked block, 1, 0)
+	
 
 
 
@@ -97,6 +117,13 @@ on right click on cow, mooshroom, sheep, pig, chicken, wolf, ocelot or rabbit:
 		
 	{_pitch} is set
 	playsound("entity.horse.eat", "neutral", clicked entity's location, 1, {_pitch})
+
+on right click on wolf:
+	if getOwner(clicked entity) is "<none>" or "":
+		event-item is bone
+		playsound("entity.horse.eat", "neutral", clicked entity, 1, 1.5)
+	else if getOwner(clicked entity) is player's uuid:
+		playsound("entity.wolf.pant", "neutral", clicked entity, 1, 1.25)
 
 
 
