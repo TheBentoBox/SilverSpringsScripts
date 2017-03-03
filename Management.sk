@@ -79,6 +79,11 @@ on command:
 		send "&cYou need at least 10 free inventory slots to join a Mob Arena (to hold the potential prizes afterwards!)" to the player
 	else:
 		saveInv(player)
+	
+on gamemode change:
+	wait 1 tick
+	player's gamemode is creative
+	saveInv(player)
 
 
 #= Keep track of when players were last damaged
@@ -241,19 +246,7 @@ command /nbt [<text="get">] [<text="">] [<text="">]:
 			stop
 
 
-#= Simple command to try to check the owner of a mob
-# Prioritizes the vanilla owner tag, then mine
-command /owner:
-	trigger:
-		if player's target isn't set:
-			send "&cYou aren't looking at anything." to the player
-		else:
-			set {_ownerTag} to tag "OwnerUUID" of nbt of player's target
-			if {_ownerTag} isn't set:
-				hasKeyValueTag(player's target, "Owner") is true
-				set {_ownerTag} to getKeyValueTag(player's target, "Owner")
-			
-			if {_ownerTag} is set:
-				send "&6That %target% is owned by &c%{name::%{_ownerTag}%}%&6." to the player
-			else:
-				send "&6That %target% is unprotected." to the player
+#= Make sure people don't get stuck with full knockback resistance
+# We have multiple things that give player temp KBR, so this is a "just in case"
+on join:
+	add "{Attributes:[{Base:0.0d,Name:""generic.knockbackResistance""}]}" to nbt of player
