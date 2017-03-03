@@ -146,6 +146,7 @@ function makeLook(e: living entity, loc: location):
 	set pitch of {_newLoc} to {_pitch}
 	
 	teleport {_e} to {_newLoc}
+	add "{Rotation:[%{_yaw}%f, %{_pitch}%f]}" to nbt of {_e}
 	
 # @desc:			Takes a number in seconds and returns it as a presentable time string.
 #						e.g. An arg of 123 would return "2 minutes and 3 seconds"
