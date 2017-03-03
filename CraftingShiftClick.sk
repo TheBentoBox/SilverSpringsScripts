@@ -17,11 +17,99 @@ on inventory click:
 	# Then just make sure they even clicked anything to begin
 	"%inventory type of current inventory of player%" is "WORKBENCH"
 	clicked raw slot > 9
-	click type is left mouse button with shift
+	click type is right mouse button with shift or left mouse button with shift
 	clicked item isn't air
 	
 	# Parse this once separately because it speeds up the script's load time noticeably
 	set {_max} to max stack size of clicked item
+	
+	# For shift right click, we try to split the stack evenly across relevant crafting table slots
+	if click type is right mouse button with shift:
+		# If the max stack size is 1, there's no need to try to evenly split it
+		# Bail out and let the shift left click behavior take hold
+		if {_max} is 1:
+			exit 2 sections
+		
+		# Grab the clicked item type for comparison
+		# Also set up variables to track the amount of each slot type we've found
+		set {_type} to type of clicked item
+		set {_matchFound} to 0
+		set {_airSlots} to 9
+		
+		# Iterate over each slot in the crafting table
+		loop 9 times:
+			set {_item} to slot loop-number of current inventory of player
+			# If we found a matching item, we want to keep track of how many we found
+			# This is for splitting the clicked item evenly over the found stacks
+			if 1 of {_item} is 1 of clicked item:
+				# Also, don't count ones that are full stacks
+				# Otherwise having some full and some not will split the wrong amount into the not full ones
+				if amount of {_item} < {_max}:
+					add 1 to {_matchFound}
+				# If it's a valid stack, but it's full, there's one less air slot to split into
+				else:
+					subtract 1 from {_airSlots}
+			# Otherwise, if the item isn't an empty space, we have 1 less space to work with
+			else if {_item} isn't air:
+				subtract 1 from {_airSlots}
+		
+		# We reached this point, so the only items in the table are the clicked one or empty slots
+		# That being the case, if {_matchFound} is above 0, we want to split over the matches,
+		# otherwise we want to split over all air slots.
+		
+		# Unless...
+		if {_matchFound} is 1:
+			# If what we found was 1 match, then we can't evenly spread it
+			# That being the case, we'll just exit and treat this like a shift left click
+			exit 2 sections
+		else if {_matchFound} is 0:
+			# We want to split into all air slots since we found no matches
+			set {_evenSplitAmt} to floor(amount of clicked item / {_airSlots})
+			set {_splitIntoAir} to true
+		else:
+			# We want to split into the matched slots only
+			set {_evenSplitAmt} to floor(amount of clicked item / {_matchFound})
+			set {_splitIntoAir} to false
+		
+		# If we don't have enough to split evenly, then we'll try to put 1 into each slot until we can't do anything else
+		if {_evenSplitAmt} is 0:
+			set {_evenSplitAmt} to 1
+			
+		cancel event
+			
+		# Now we know what we're splitting into, and how much should go in each slot
+		# So, iterate over each slot again
+		loop 9 times:
+			set {_item} to slot loop-number of current inventory of player
+			set {_loopAmt} to amount of {_item}
+			set {_clickAmt} to amount of clicked item
+			
+			# If it's a matching item, and that's what we're splitting into, do the split
+			if check [{_splitIntoAir} is false] -> [1 of {_item} is 1 of clicked item]:
+				set {_deposit} to {_evenSplitAmt}
+				if {_deposit} + {_loopAmt} > {_max}:
+					set {_deposit} to {_max} - {_loopAmt}
+				{_deposit} > 0
+				set slot loop-number of current inventory of player to ({_loopAmt} + {_deposit}) of {_item}
+				set clicked item to {_clickAmt} - {_deposit} of clicked item
+				
+			# Otherwise, if the item isn't an empty space, hard stop
+			# There's no way to evenly split over a different item
+			else if check [{_splitIntoAir} is true] -> [{_item} is air]:
+				set slot loop-number of current inventory of player to {_evenSplitAmt} of clicked item
+				set clicked item to {_clickAmt} - {_evenSplitAmt} of clicked item
+			
+			update inventory current inventory of player
+			
+			# Bail out early if there's nothing left in the clicked item
+			if clicked item is air:
+				stop
+				
+		stop
+	
+	
+	# For normal shift left clicking, try to just shove the clicked item into the crafting table
+	# Basically, treat it like every other inventory
 	
 	# First, loop over the crafting slots to find the same item type to stack it with familiars
 	# e.g. If shift clicking a piece of wheat in, it should try to stack with other wheat first
@@ -47,6 +135,8 @@ on inventory click:
 			cancel event
 			set slot loop-number of current inventory of player to {_max} of {_item}
 			set clicked item to {_diff} of clicked item
+		
+		update inventory current inventory of player
 	
 	# Then, we loop again, this time just finding an empty slot to drop it in (if any exist)
 	loop 9 times:
@@ -55,4 +145,5 @@ on inventory click:
 			cancel event
 			set slot loop-number of current inventory of player to clicked item
 			set clicked item to air
+			update inventory current inventory of player
 			stop
