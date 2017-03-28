@@ -43,6 +43,8 @@ on tool break:
 
 #= Allow players to hear their own swapping sound
 on offhand switch:
+	if check [player's tool is air]->[player's offhand tool is air]:
+		stop
 	playsound("item.armor.equip_generic", "player", player, 1, 1, "%player%")
 
 
@@ -53,11 +55,13 @@ on offhand switch:
 # Makes chests play a creaky sound for negative feedback when they can't be opened
 on right click on chest or trapped chest:
 	player's target block is clicked block
+	vanish state of player is false
 	wait 1 tick
 	"%current inventory of player%" is "inventory of %player%"
 	playsound("block.chest.open", "block", clicked block, 0.5, 2)
 # Adds sounds for opening hoppers, dispensers, or droppers
 on right click on hopper, dropper or dispenser:
+	vanish state of player is false
 	wait 1 tick
 	if "%current inventory of player%" contains "Hopper":
 		playsound("block.iron_trapdoor.open", "block", clicked block, 1, 0)
@@ -163,6 +167,12 @@ on right click on dirt with any hoe:
 on place of redstone wire:
 	playsound("block.sand.step", "block", event-location, 0.5, 2)
 
+#= Repeater change tick
+on right click on repeater:
+	if check [player's tool is any pickaxe]->[player's offhand tool is air]->[player can build at event-location]:
+		stop
+	playsound("block.comparator.click", "block", event-location, 0.5, 0)
+
 
 
 #============#
@@ -192,6 +202,7 @@ on right click on cow:
 on elytra glide toggle:
 	{swimming::%player's uuid%} isn't set
 	{elytraModeActive::%player's uuid%} isn't set
+	event isn't cancelled
 	player's chestplate is elytra
 	if elytra glide state of player is false:
 		playsound("entity.enderdragon.flap", "master", player, 0.25, 0.5)
