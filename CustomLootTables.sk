@@ -1,24 +1,19 @@
-#== Register custom recipes
-#on script load:
-	# Allow Evoker drop to be crafted into an extra totem
-	#register new shapeless recipe for totem of undying using air, air, air, air, {item.DustyEmerald}, air, air, wheat, air
-
-
-#== Adding rare items to loot tables
+#= Adding rare items to loot tables
 on right click on chest:
 	# Conditions
 	isASurvivalWorld(player's world) is true
 	set {_table} to tag "LootTable" of nbt of clicked block
+	{_table} is set
 	wait 1 tick
 	
 	# Grab all free slots within the chest
 	loop integers from 0 to 26:
 		slot loop-number of inventory of clicked block is air
 		add loop-number to {_slots::*}
+	
 	size of {_slots::*} > 0
 	
 	# Grab chest tag and cleanse it
-	{_table} is set
 	replace all "minecraft:chests/" in {_table} with ""
 	set {_slot} to random element out of {_slots::*}
 
@@ -45,7 +40,7 @@ on right click on chest:
 				set slot {_slot} of inventory of clicked block to enchanted book with nbt "{StoredEnchantments:[0:{lvl:%random integer between 1 and 2%s,id:9s}]}"
 
 
-#== Adding special drops to minibosses
+#= Adding special drops to minibosses
 on death of evoker:
 	isASurvivalWorld(victim's world) is true
 	drop 1 of {item.DustyEmerald} at the victim
@@ -57,3 +52,11 @@ on death of wither:
 	set {_loc} to victim's location
 	wait 0.5 seconds
 	drop 1 of {item.WitheredHeart} at {_loc}
+
+
+#= Dusty Emeralds were updated at one point with a new lore
+# (They're now converted to totems at the Valor Shop instead of via crafting)
+# This lets people convert them to the new ones for selling
+on right click:
+	player's tool is {item.DustyEmeraldOld}
+	set player's tool to (amount of player's tool) of {item.DustyEmerald}
