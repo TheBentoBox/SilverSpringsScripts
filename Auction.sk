@@ -196,7 +196,7 @@ on join:
 #= Main command which controls auction system info, info
 command /auction [<text="current">] [<number=100>] [<number=100>] [<number=1>] [<integer=0>]:
 	executable by: players
-	aliases: auctions
+	aliases: auctions, auc
 	trigger:
 
 		# Sends informating about the currently active auction.
@@ -217,7 +217,7 @@ command /auction [<text="current">] [<number=100>] [<number=100>] [<number=1>] [
 
 		# Main auction creation command. Has a lot of checks to make sure people don't make funky auctions.
 		# Players can only have one auction running or queued at a time.
-		else if text-argument-1 is "start", "add" or "create":
+		else if text-argument-1 is "start", "add", "c" or "create":
 			#player has permission "skript.mod"
 			# Block banned people from starting auctions
 			if {auction::bans::%player's uuid%} is set:
