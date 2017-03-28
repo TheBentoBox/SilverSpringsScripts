@@ -10,14 +10,8 @@ function getUUID(e: entity) :: text:
 #						yOff: The offset to apply to loc's y coordinate. Optional. Defaults to 0.
 #						zOff: The offset to apply to loc's z coordinate. Optional. Defaults to 0.
 # @returns:		The string representing the three components of the location with the offset applied.
-function locStringVar(loc: location, xOff: number = 0, yOff: number = 0, zOff: number = 0) :: string:
+function locString(loc: location, xOff: number = 0, yOff: number = 0, zOff: number = 0) :: string:
 	return "%{_loc}'s x location + {_xOff}% %{_loc}'s y location + {_yOff}% %{_loc}'s z location + {_zOff}%"
-
-# @desc:			Creates a string representing the components of an entity's location for use in console commands.
-# @params:	See locStringVar.
-# @returns:		The string representing the three components of the entity's location with the offset applied.
-function locStringEntity(e: entity, xOff: number = 0, yOff: number = 0, zOff: number = 0) :: string:
-	return locStringVar({_e}'s location, {_xOff}, {_yOff}, {_zOff})
 
 # @desc:			Plays the provided sound name at a location.
 # @params:	p: The player to play the sound from (vanilla commands need to execute relative to a player.)
@@ -30,7 +24,7 @@ function locStringEntity(e: entity, xOff: number = 0, yOff: number = 0, zOff: nu
 function playsound(sound: text, category: text, loc: location, vol: number = 1, pitch: number = 1, selector: text = "@a[r=100]"):
 	loop players in world of {_loc}:
 		distance between {_loc} and loop-player <= 100
-		execute console command "execute %loop-player% ~ ~ ~ /playsound %{_sound}% %{_category}% %{_selector}% %locStringVar({_loc})% %{_vol}% %{_pitch}%"
+		execute console command "execute %loop-player% ~ ~ ~ /playsound %{_sound}% %{_category}% %{_selector}% %locString({_loc})% %{_vol}% %{_pitch}%"
 		stop loop
 
 # @desc:			Spawns particles at the provided location.
@@ -48,7 +42,7 @@ function playsound(sound: text, category: text, loc: location, vol: number = 1, 
 function particle(particle: text, loc: location, count: integer = 25, xd: number = 0, yd: number = 0, zd: number = 0, speed: number = 0.05, mode: text = "normal", selector: text = "@a", params: text = "0 0"):
 	loop players in {_loc}'s world:
 		distance between {_loc} and loop-player <= 100
-		execute console command "execute %loop-player% ~ ~ ~ /particle %{_particle}% %locStringVar({_loc})% %{_xd}% %{_yd}% %{_zd}% %{_speed}% %{_count}% %{_mode}% %{_selector}% %{_params}%"
+		execute console command "execute %loop-player% ~ ~ ~ /particle %{_particle}% %locString({_loc})% %{_xd}% %{_yd}% %{_zd}% %{_speed}% %{_count}% %{_mode}% %{_selector}% %{_params}%"
 		stop loop
 
 # @desc:			Drops the provided item at the provided location with a randomized offset. Can't be picked up and despawns after itemDuration ticks.
@@ -163,17 +157,13 @@ function secondsToTimespan(seconds: number) :: text:
 	else:
 		return "%{_daysAndHours}%, %{_minutesAndSeconds}%"
 
-#function logBlockBreak(p: player, loc: location, typeBefore: integer, dataBefore: integer):
-#	set {_test} to return of method "queueBlockBreak" with params "%{_p}'s uuid%", {_loc}, {_typeBefore} and {_dataBefore} in class "de.diddiz.LogBlock.Consumer"
-#	send "%{_tesT}%" to {_p}
-#	
-#function logKill(a: entity, v: entity):
-#	call method "queueKill" with params {_a} and {_v} in class "de.diddiz.LogBlock.Consumer"
-#function blockBreak(p: player, loc: location, oldID: integer, oldData: integer):
-#	set {_test} to return of method "actorFromString" with params "%{_p}%" in class "de.diddiz.LogBlock.Actor"
-#	#call function "queueBlockBreak" with params {_p}, {_oldID} and {_oldData} in class "main.java.de.diddiz.LogBlock.Consumer"
-#	send "%{_test}%" to {_p}
-#command /blockbreak <integer> <integer>:
-#	permission: skript.admin
-#	trigger:
-#		blockBreak(player, target block's location, arg-1, arg-2)
+# @desc:			Sends the client a cooldown for an item type, displays for them like the ender pearl CD or shield disable.
+#						Note that this doesn't stop them from actually using the item, but it stops the arm swing use-attempt animation.
+#	@params:	p: player to send the cooldown to
+#						i: the item type to disable (e.g. "slimeball", not "player's tool")
+#						duration: how many ticks to disable the item for
+function setCooldown(p: player, itemType: item, duration: integer):
+	set {_packet} to new play_server_set_cooldown packet
+	set "item" pinfo 0 of {_packet} to {_itemType}
+	set int pnum 0 of {_packet} to {_duration}
+	send packet {_packet} to {_p}
