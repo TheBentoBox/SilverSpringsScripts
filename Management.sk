@@ -30,7 +30,7 @@ every minute:
 	if "%now%" contains "11:55":
 		"%{cancelNextRestart}%" isn't "true"
 		broadcast "{@ServerPrefix}The server will restart in 5 minutes."
-		send all players title "&3The server restarts in 5 minutes." with subtitle  "" for 2 seconds with 0 ticks fade in and 10 ticks fade out
+		send all players title "" with subtitle "&3The server restarts in 5 minutes." for 2 seconds with 0 ticks fade in and 10 ticks fade out
 		set {timeUntilRestart} to 5 minutes
 	else if "%now%" contains "11:59":
 		if {cancelNextRestart} is true:
@@ -41,7 +41,7 @@ every minute:
 			"%loop-player's world%" is "Soulthief"
 			make loop-player execute "ma leave"
 			send "&cYou have been forced to leave the arena to ensure your inventory is not lost due to MobArena." to the loop-player
-		send all players title "&3The server restarts in 1 minute." with subtitle  "" for 2 seconds with 0 ticks fade in and 10 ticks fade out
+		send all players title "" with subtitle "&3The server restarts in 1 minute." for 2 seconds with 0 ticks fade in and 10 ticks fade out
 		if {cancelNextRestart} is true:
 			delete {cancelNextRestart}
 			stop
