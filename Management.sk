@@ -132,7 +132,7 @@ command /warpalias <text> <text>:
 			set {warpAliases::%arg-2%} to arg-1
 			send "&6Set &c%arg-2%&6 as an alias for warp &c%arg-1%&6." to the command sender
 		else:
-			send "&cThat warp doesn't exist." to the command sender
+			send "&cThat warp doesn't exist. Remember that warp names in this context are case-sensitive." to the command sender
 
 on command:
 	"%command%" is "warp"
