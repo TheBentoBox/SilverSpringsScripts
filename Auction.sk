@@ -342,13 +342,14 @@ command /auction [<text="current">] [<number=100>] [<number=100>] [<number=1>] [
 		# Separate way to retrieve auction claims, instead dropping them at the player's feet
 		else if text-argument-1 is "dropclaim" or "dropclaims":
 			loop {auctionClaims::%player's uuid%::*}:
+				set {_maxStackSize} to max stack size of loop-value
 				if player can hold loop-value:
 					give loop-value to the player
 				else:
-					if amount of loop-value > 64:
-						drop (amount of loop-value mod 64) of loop-value at the player's head
-						loop floor(amount of loop-value/64) times:
-							drop 64 of loop-value-1 at the player's head
+					if amount of loop-value > {_maxStackSize}:
+						drop (amount of loop-value mod {_maxStackSize}) of loop-value at the player's head
+						loop floor(amount of loop-value/{_maxStackSize}) times:
+							drop {_maxStackSize} of loop-value-1 at the player's head
 				remove loop-value from {auctionClaims::%player's uuid%::*}
 			delete {auctionClaims::%player's uuid%::*}
 			send "{@Prefix} All unclaimed auction items have been dropped on you." to the player
