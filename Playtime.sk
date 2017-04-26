@@ -4,12 +4,24 @@ command /playtime <text="%player%"> [<text="1">]:
 		if argument 1 is "check":
 			player has permission "skript.admin"
 			send "&6The following players have recently hit 20 hours of playtime: &c%{fullday::*}%"
-			stop
+			
 		else if argument 1 is "clear":
 			if player has permission "skript.admin":
 				clear {fullday::*}
 				send "&6Cleared 20 hour playtime list."
-			stop
+			else:
+				send "&cYou don't have permission to perform this action."
+			
+		else if argument 1 is "average" or "stats":
+			set {_playtimeSum} to sum({playtime::*})
+			set {_playtimeAvg} to {_playtimeSum}/(size of {playtime::*})
+			set {_years} to floor({_playtimeSum}/(365*24*3600))
+			set {_remainingAfterYears} to mod({_playtimeSum}, 365*24*3600)
+			send "&8- &6The average playtime is &c%secondsToTimespan({_playtimeAvg})%" to the command sender
+			send "&8- &6In total, Silver Springs players have played for &c%{_years}% years, %secondsToTimespan({_remainingAfterYears})%&6." to the command sender
+			command sender isn't console
+			send "&8- &6You account for &c%100*{playtime::%player's uuid%}/{_playtimeSum}%%%&6 of total playtime." to the command sender
+			
 		else if argument 1 is "rank":
 			if argument 2 is "1":
 				set {_arg} to player
@@ -30,7 +42,6 @@ command /playtime <text="%player%"> [<text="1">]:
 					send "&6%{_arg}%'s playtime postion: &c##%{_s} - loop-number + 1%"
 				stop
 			send "&cAn error occurred finding the playtime rank. Tell an admin!"
-			stop
 
 		else if argument 1 is "top":
 			set {_pg} to arg-2 parsed as an integer
@@ -53,44 +64,43 @@ command /playtime <text="%player%"> [<text="1">]:
 					send "&8[&7%size of {playtime::*} - {_start} + 1%&8] &6%{name::%loop-value-2%}%: &c%secondsToTimespan({_topList::%{_start}%})%"
 					remove all loop-value-2 from {_values::%{_topList::%{_start}%}%::*}
 					subtract 1 from {_start}
-			stop
 			
-		set {_arg} to ("%arg 1%" parsed as an offline player)
-		set {_argUUID} to {_arg}'s uuid
-
-		if {_arg} isn't online:
-			if player doesn't have permission "skript.mod":
-				send "&4Player not found."
-				stop
-				
-		else if "%vanish state of {_arg}%" is "true":
-			if player doesn't have permission "skript.mod":
-				send "&4Player not found."
-				stop
-			
-		set {_playtime} to {playtime::%{_argUUID}%}
-
-		if "%{_playtime}%" is "<none>":
-			send "&cThe player '%argument 1%' has never joined this server."
-			stop
-		
-		if command sender is console:
-			send "&6%{_arg}%'s playtime:&c %secondsToTimespan({_playtime})%" to console
-		else if {_arg} is player:
-			send "&6Your playtime:&c %secondsToTimespan({_playtime})%" to the player
 		else:
-			send "&6%{_arg}%'s playtime:&c %secondsToTimespan({_playtime})%" to the player
+			set {_arg} to ("%arg 1%" parsed as an offline player)
+			set {_argUUID} to uuid of {_arg}
+
+			if {_arg} isn't online:
+				if player doesn't have permission "skript.mod":
+					send "&4Player not found."
+					stop
+					
+			else if "%vanish state of {_arg}%" is "true":
+				if player doesn't have permission "skript.mod":
+					send "&4Player not found."
+					stop
+				
+			set {_playtime} to {playtime::%{_argUUID}%}
+
+			if "%{_playtime}%" is "<none>":
+				send "&cThe player '%argument 1%' has never joined this server."
+				stop
+			
+			if command sender is console:
+				send "&6%{_arg}%'s playtime:&c %secondsToTimespan({_playtime})%" to console
+			else if {_arg} is player:
+				send "&6Your playtime:&c %secondsToTimespan({_playtime})%" to the player
+			else:
+				send "&6%{_arg}%'s playtime:&c %secondsToTimespan({_playtime})%" to the player
 			
 every 1 second:
 	loop players:
 		if loop-player is afk:
-			wait 0 ticks
+			doNothing()
 		else:
 			add 1 to {playtime::%loop-player's uuid%}
 		
 		if {playtime::%loop-player's uuid%} is 72000:
-			if loop-player has permission "skript.member":
-				stop
+			loop-player doesn't have permission "skript.member"
 			add "%loop-player%" to {fullday::*}
 
 on login:
