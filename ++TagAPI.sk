@@ -63,7 +63,7 @@ function hasKeyValueTag(entityToCheck: entity, key: text) :: boolean:
 # @params:	entityToTag: which entitiy to add the key=value tag to
 #						key: the 'key' of the tag to add to entityToTag
 #						value: the 'value' of the tag to add to entityToTag
-function setKeyValueTag(entityToTag: entity, key: text, value: text):
+function setKeyValueTag(entityToTag: entity, key: object, value: object):
 	addTag({_entityToTag}, "%{_key}%=%{_value}%")
 
 
