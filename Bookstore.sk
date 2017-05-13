@@ -8,6 +8,7 @@ on script load:
 on mor.inventory click:
 	# Main condition
 	"%inventory name of current inventory of player%" contains "Official Bookstore"
+	cancel event
 	
 	# Papers and book and quills represent the categories
 	# When they're clicked, the player is made to open the genre represented by that item
@@ -21,8 +22,6 @@ on mor.inventory click:
 	else if event-item is a written book:
 		# Extra condition to ensure people can't simulate bookstores easily
 		"%event-item's lore%" contains "&7Costs "
-		
-		cancel event
 		"%event-inventory%" is "inventory of <none>"
 		
 		# Get book info from its NBT
@@ -149,7 +148,8 @@ command /bookstore [<text="main">]:
 				loop {bookstoreGenres::%loop-value%::*}:
 					loop-value-2 is arg-1
 					set slot {_i} of current inventory of player to written book with custom nbt "%{bookstore::%loop-value-1%::%loop-index-2%}%"
-					set lore of slot {_i} of current inventory of player to "%lore of slot {_i} of current inventory of player%||&7Costs %{bookstorePrice::%loop-value-1%::%loop-index-2%}% silver"
+					wait 1 tick
+					add "{display:{Lore:[""%lore of slot {_i} of current inventory of player%"",""&7Costs %{bookstorePrice::%loop-value-1%::%loop-index-2%}% silver""]}}" to NBT of slot {_i} of current inventory of player
 					add 1 to {_i}
 					
 			# If we found no saved books for that genre, bail out
