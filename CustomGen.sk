@@ -14,7 +14,19 @@ on chunk generate:
 	set {_loc} to location of highest solid block at {_loc}
 	set {_session} to new edit session in event-world with limit -1
 	
-	if biome at {_loc} is swampland:
+	if biome at {_loc} is deep ocean:
+		chance of 0.25%
+		loop 50 times:
+			if block 1 meter below {_loc} is air or water:
+				subtract 1 from {_loc}'s y location
+			else:
+				exit 2 sections
+		paste schematic "plugins/WorldEdit/schematics/HydrothermalVent" at {_loc} using editsession {_session} without air
+		loop players in event-world:
+			execute console command "execute %loop-player% ~ ~ ~ /summon minecraft:area_effect_cloud %locString(location 1 meter above {_loc})% {Radius:1.5, Particle:""cloud"", Duration:999999, Tags:[""InfiniteCloud""]}"
+			stop loop
+	
+	else if biome at {_loc} is swampland:
 		chance of 57.5%:
 			grow huge mushroom at {_loc}
 			
@@ -241,3 +253,15 @@ on chunk generate:
 		paste schematic "plugins/WorldEdit/schematics/EndObsidianPillar" at {_loc} using editsession {_session} without air
 		spawn an ender crystal at location 35 meters above {_loc}
 		add "{ShowBottom:0b}" to nbt of last spawned ender crystal
+
+
+
+#= Run a loop while the script is loaded that keeps area effect clouds tagged with "InfiniteCloud" alive forever
+on script load:
+	"%{infiniteCloudLoop}%" isn't "true"
+	set {infiniteCloudLoop} to true
+	while {infiniteCloudLoop} is true:
+		wait 10 seconds
+		execute console command "entitydata @e[type=area_effect_cloud,tag=InfiniteCloud] {Age:0}"
+on script unload:
+	delete {infiniteCloudLoop}
