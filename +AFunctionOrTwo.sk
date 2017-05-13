@@ -4,6 +4,8 @@
 function getUUID(e: entity) :: text:
 	return "%tag ""UUIDLeast"" of nbt of {_e}%%tag ""UUIDMost"" of nbt of {_e}%"
 
+
+
 # @desc:			Creates a string representing the components of a location for use in console commands.
 # @params:	loc: The location to create a string for.
 #						xOff: The offset to apply to loc's x coordinate. Optional. Defaults to 0.
@@ -12,6 +14,8 @@ function getUUID(e: entity) :: text:
 # @returns:		The string representing the three components of the location with the offset applied.
 function locString(loc: location, xOff: number = 0, yOff: number = 0, zOff: number = 0) :: string:
 	return "%{_loc}'s x location + {_xOff}% %{_loc}'s y location + {_yOff}% %{_loc}'s z location + {_zOff}%"
+
+
 
 # @desc:			Plays the provided sound name at a location.
 # @params:	p: The player to play the sound from (vanilla commands need to execute relative to a player.)
@@ -26,6 +30,8 @@ function playsound(sound: text, category: text, loc: location, vol: number = 1, 
 		distance between {_loc} and loop-player <= 100
 		execute console command "execute %loop-player% ~ ~ ~ /playsound %{_sound}% %{_category}% %{_selector}% %locString({_loc})% %{_vol}% %{_pitch}%"
 		stop loop
+
+
 
 # @desc:			Spawns particles at the provided location.
 # @params:	p: The player to play the sound from (vanilla commands need to execute relative to a player.)
@@ -45,6 +51,8 @@ function particle(particle: text, loc: location, count: integer = 25, xd: number
 		execute console command "execute %loop-player% ~ ~ ~ /particle %{_particle}% %locString({_loc})% %{_xd}% %{_yd}% %{_zd}% %{_speed}% %{_count}% %{_mode}% %{_selector}% %{_params}%"
 		stop loop
 
+
+
 # @desc:			Drops the provided item at the provided location with a randomized offset. Can't be picked up and despawns after itemDuration ticks.
 #	@params:	loc: The location to drop the item at.
 #						item: The item type to drop. Provide it as a Skript itemstack.
@@ -59,6 +67,8 @@ function decorativeItemDrop(loc: location, item: item, randomOffset: number = 1.
 		items within entity loop-entity is {_item}
 		add "{PickupDelay:32767,Age:%6000 - {_itemDuration}%}" to nbt of loop-entity
 
+
+
 # @desc:			Tells you whether or not a world is a normal SSS survival world (one of the main worlds or a resource world).
 # @params:	w: The world to check agains.
 # @returns:		True if the world is a normal survival world, false if otherwise.
@@ -67,6 +77,8 @@ function isASurvivalWorld(w: world) :: boolean:
 		return true
 	else:
 		return false
+
+
 
 # @desc:			Returns a version of the provided number clamped between min and max.
 # @params:	n: The number to clamp.
@@ -81,10 +93,14 @@ function clamp(n: number, min: number, max: number) :: number:
 		
 	return {_n}
 
+
+
 # @desc:			Executes `wait 0 ticks` to simulate nothing happening, as Skript has no effect for loops like `continue`.
 # @params:	n: Completely useless and unused, but Skript functions require at least one parameter.
 function doNothing(n: number = 0):
 	wait 0 ticks
+
+
 
 # @desc:			Spawns particles and plays a sound effect at a location, used for custom scripted bonemeal effects.
 # @params:	p: The player to execute the effects from (vanilla commands need to execute relative to a player.)
@@ -92,6 +108,8 @@ function doNothing(n: number = 0):
 function bonemealEffect(loc: location):
 	particle("happyVillager", {_loc}, 10, 0.15, 0.15, 0.15, 0)
 	playsound("block.enchantment_table.use", "block", {_loc}, 0.125, 2)
+
+
 
 # @desc:			Returns the number of free slots in the player's inventory.
 # @params:	p: The player to check for the number of free spaces.
@@ -115,6 +133,8 @@ function getFreeSpace(p: player, countArmorSlots: boolean = false) :: number:
 	
 	return {_space}
 
+
+
 # @desc:			Sends the provided message to all players with the specific permission.
 # @params:	msg: The message to send.
 #						perm: The permission which should be required.
@@ -122,6 +142,8 @@ function sendWithPerms(msg: text, perm: text):
 	loop players:
 		if loop-player has permission "%{_perm}%":
 			send "%{_msg}%" to loop-player
+
+
 
 # @desc:			Makes the given entity look at a specific location.
 # @params:	e: The entity that will do the looking.
@@ -141,7 +163,9 @@ function makeLook(e: living entity, loc: location):
 	
 	teleport {_e} to {_newLoc}
 	add "{Rotation:[%{_yaw}%f, %{_pitch}%f]}" to nbt of {_e}
-	
+
+
+
 # @desc:			Takes a number in seconds and returns it as a presentable time string.
 #						e.g. An arg of 123 would return "2 minutes and 3 seconds"
 # @params:	seconds: The number of seconds to parsed into the timespan
@@ -157,6 +181,8 @@ function secondsToTimespan(seconds: number) :: text:
 	else:
 		return "%{_daysAndHours}%, %{_minutesAndSeconds}%"
 
+
+
 # @desc:			Sends the client a cooldown for an item type, displays for them like the ender pearl CD or shield disable.
 #						Note that this doesn't stop them from actually using the item, but it stops the arm swing use-attempt animation.
 #	@params:	p: player to send the cooldown to
@@ -167,3 +193,15 @@ function setCooldown(p: player, itemType: item, duration: integer):
 	set "item" pinfo 0 of {_packet} to {_itemType}
 	set int pnum 0 of {_packet} to {_duration}
 	send packet {_packet} to {_p}
+
+
+
+# @desc:			Tries to give items to a player, and if they can't hold them, it drops it all at their feet instead.
+# @params:	p: player to give the item to
+#						i: the items to drop
+function safelyGive(p: player, i: items):
+	loop {_i::*}:
+		if {_p} can hold loop-value:
+			give loop-value to {_p}
+		else:
+			drop loop-value at {_p}'s head
