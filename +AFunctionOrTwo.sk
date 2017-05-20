@@ -205,3 +205,25 @@ function safelyGive(p: player, i: items):
 			give loop-value to {_p}
 		else:
 			drop loop-value at {_p}'s head
+
+
+# @desc			Plays the arm swing animation on a player.
+# @parmas:	p: the player whose arm should swing
+#						useOffhand: whether
+function playArmSwing(p: player, useOffhand: boolean = false):
+	set {_pUUID} to {_p}'s UUID
+	{Packet::PlayerID::%{_pUUID}%} is set
+	set {_swing} to new play_server_animation packet
+	set int pnum 0 of {_swing} to {Packet::PlayerID::%{_pUUID}%}
+	if {_useOffhand} is true:
+		set int pnum 1 of {_swing} to 3
+	loop players in {_p}'s world:
+		send packet {_swing} to loop-player
+
+
+#
+function listContains(list: objects, value: object) :: boolean:
+	loop {_list::*}:
+		if loop-value is {_value}:
+			return true
+	return false
