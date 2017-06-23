@@ -128,7 +128,7 @@ function getFreeSpace(p: player, countArmorSlots: boolean = false) :: number:
 		if "%{_p}'s boots%" is "<none>":
 			subtract 1 from {_space}
 		
-	if "%{_p}'s offhand%" is "0 air":
+	if "%{_p}'s offhand tool%" is "0 air":
 		subtract 1 from {_space}
 	
 	return {_space}
@@ -153,16 +153,12 @@ function makeLook(e: living entity, loc: location):
 	set {_yD} to {_loc}'s y location - {_e}'s y location
 	set {_zD} to {_loc}'s z location - {_e}'s z location
 	set {_yaw} to atan2({_xD}, {_zD}) - 90
-	set {_newLoc} to {_e}'s location
-	set yaw of {_newLoc} to {_yaw}
 	
 	set {_adj2} to ({_xD}*{_xD}) + ({_zD}*{_zD})
 	set {_parallel} to sqrt({_adj2})
 	set {_pitch} to atan2({_yD}, {_parallel}) - 90
-	set pitch of {_newLoc} to {_pitch}
 	
-	teleport {_e} to {_newLoc}
-	add "{Rotation:[%{_yaw}%f, %{_pitch}%f]}" to nbt of {_e}
+	add "{Rotation:[%{_yaw}%f, %{_pitch}%f]}" to NBT of {_e}
 
 
 
@@ -201,10 +197,16 @@ function setCooldown(p: player, itemType: item, duration: integer):
 #						i: the items to drop
 function safelyGive(p: player, i: items):
 	loop {_i::*}:
+		set {_maxStackSize} to max stack size of loop-value
 		if {_p} can hold loop-value:
 			give loop-value to {_p}
 		else:
-			drop loop-value at {_p}'s head
+			if amount of loop-value > {_maxStackSize}:
+				drop (amount of loop-value mod {_maxStackSize}) of loop-value at {_p}'s head
+				loop floor(amount of loop-value/{_maxStackSize}) times:
+					drop {_maxStackSize} of loop-value-1 at {_p}'s head
+			else:
+				drop loop-value at {_p}'s head
 
 
 # @desc			Plays the arm swing animation on a player.
@@ -221,9 +223,60 @@ function playArmSwing(p: player, useOffhand: boolean = false):
 		send packet {_swing} to loop-player
 
 
-#
+# @desc			Properly checks if a list contains something, since Skript's contains check sucks
 function listContains(list: objects, value: object) :: boolean:
+	if "%{_list::*}%" is "<none>":
+		return false
 	loop {_list::*}:
 		if loop-value is {_value}:
 			return true
 	return false
+
+
+# @desc			Returns a display name for an item: its custom name if it's been renamed, or its normal name otherwise
+function getDisplayName(itemsToDisplay: items) :: texts:
+	loop {_itemsToDisplay::*}:
+		set {_i} to (amount of loop-value) of loop-value
+		set {_name} to tag "display" of NBT of {_i}
+		set {_name} to tag "Name" of {_name}
+		disenchant {_i}
+
+		if {_name} isn't "<none>":
+			if item amount of {_i} > 1:
+				add "%item amount of {_i}% %{_name}%" to {_returns::*}
+			else:
+				add "%{_name}%" to {_returns::*}
+		else:
+			add "%{_i}%" to {_returns::*}
+		
+		delete {_name}
+	
+	return {_returns::*}
+
+
+# @desc		Gets the armor value of an entity
+function getArmorValue(e: living entity) :: number:
+	set {_total} to 0
+	set {_types::*} to "%type of {_e}'s helmet%", "%type of {_e}'s chestplate%", "%type of {_e}'s leggings%" and "%type of {_e}'s boots%"
+	loop ({_e}'s helmet, {_e}'s chestplate, {_e}'s leggings and {_e}'s boots):
+		add 1 to {_index}
+		set {_armorVal} to 0
+		set {_modifiers} to "%tag ""AttributeModifiers"" of NBT of loop-value%"
+		
+		if "%{_modifiers}%" contains "generic.armor":
+			delete {_modifiers::*}
+			set {_modifiers::*} to {_modifiers} split at "},{"
+			loop integers from 1 to size of {_modifiers::*}:
+				"%{_modifiers::%loop-number%}%" contains "generic.armor"
+				"%{_modifiers::%loop-number%}%" doesn't contain "armorToughness"
+				set {_split::*} to {_modifiers::%loop-value-2%} split at "Amount:"
+				set {_splitBack::*} to {_split::2} split at ","
+				replace all "d" in {_splitBack::1} with ""
+				set {_armorVal} to "%{_splitBack::1}%" parsed as an integer
+				#exit loop
+		else:
+			set {_armorVal} to {socket::defaultArmorValue::%{_types::%{_index}%}%}
+		
+		add {_armorVal} to {_total}
+	return {_total}
+
