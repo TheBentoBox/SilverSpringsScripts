@@ -11,6 +11,7 @@ on script load:
 		execute console command "mvgamerule logAdminCommands false %loop-value%"
 		execute console command "mvgamerule sendCommandFeedback false %loop-value%"
 		execute console command "mvgamerule commandBlockOutput false %loop-value%"
+		execute console command "mvgamerule announceAdvancements false %loop-value%"
 		execute console command "mvmodify set difficulty hard %loop-value%"
 
 
@@ -259,16 +260,6 @@ on join:
 	# Add a delay so other scripts can catch that the player is logging in with a new name
 	wait 1 tick
 	set {name::%player's uuid%} to "%player%"
-# Extra command for saving a player's UUID in a specifically named %text%UUID variable
-command /saveuuid <player> <text>:
-	permission: skript.admin
-	trigger:
-		if player's name isn't "Mr_Simba" or "Starmarsh":
-			command sender isn't console
-			send "&cThis command is for Simba & Star only." to the player
-			stop
-		set {%text-argument%UUID} to player-argument's uuid
-		send "&6Saved &c%player-argument%&6's UUID in variable &c{%text-argument%UUID}&6." to the command sender
 
 
 #= Store player entity ID from connection packet
@@ -277,3 +268,117 @@ on packet event play_server_login:
 	set {Packet::PlayerID::%uuid of player%} to int pnum 0 of event-packet
 on quit:
 	delete {Packet::PlayerID::%uuid of player%}
+
+
+#= Add /whowas for checking name history
+# Useful to see who someone is after a name change (that probably goes without saying)
+command /whowas <offline player>:
+	permission: skript.mod
+	aliases: namehistory
+	trigger:
+		set {_uuid} to "%offline player-argument's UUID%"
+		replace all "-" in {_uuid} with ""
+		set {_results::*} to contents from url "https://api.mojang.com/user/profiles/%{_uuid}%/names"
+		replace all """" in {_results::1} with ""
+		set {_results::*} to {_results::1} split at "},{"
+		
+		send "%nl%&6&l%offline player-argument%'s Name History:" to the command sender
+		loop {_results::*}:
+			# Ensure this value even contains the 'name' tag, otherwise it's just junk left over from the split
+			"%loop-value%" contains "name"
+			
+			# If there's no 'changedToAt' in the looped value, it's the original name, so we don't need to parse out the time change
+			if "%loop-value%" doesn't contain "changedToAt":
+				set {_val} to loop-value
+				replace all "[{name:" and "}]" in {_val} with ""
+				send "&8[&7%loop-index%&8] &6%{_val}% &c(Original)" to the command sender
+			
+			# Otherwise they changed FROM another name TO this one at some point, so we have to parse out the time
+			else:
+				set {_parsedResult::*} to loop-value split at ",changedToAt:"
+				replace all "name:" in {_parsedResult::1} with ""
+				replace all "}]" in {_parsedResult::2} with ""
+				
+				set {_changeTime} to convert unix ("%{_parsedResult::2}%" parsed as number) to date
+				send "&8[&7%loop-index%&8] &6%{_parsedResult::1}% &c(%{_changeTime}%)" to the command sender
+		
+			delete {_changeTime}
+			delete {_parsedResult::*}
+	
+		send "" to the command sender
+
+
+#= Require warps to be set with an owner, and store that owner
+on command:
+	if "%command%" is "setwarp" or "createwarp":
+		player has permission "skript.admin"
+		set {_args::*} to arguments split at " "
+		
+		# If there's only not two arguments, they certainly didn't provide both a warp name and owner
+		if size of {_args::*} < 2:
+			send "&cYou must provide a name for the owner of the warp, e.g. &7/%command% %{_args::1}% %player%&c would denote that this is your warp. Use 'Staff' for staff/server warps." to the player
+			cancel event
+			stop
+		
+		# If they denoted the warp as being owned by staff, we can just add it to the staff list
+		if {_args::2} is "Staff" or "Admin":
+			add {_args::1} to {warpsOwnedBy::Staff::*}
+			set {warpOwners::%{_args::1}%} to "Staff"
+		# Otherwise, they're trying to say it's a player, so we need to check if they've actually ever joined
+		else:
+			set {_pUUID} to UUID of ("%{_args::2}%" parsed as offline player)
+			if {name::%{_pUUID}%} is set:
+				add {_args::1} to {warpsOwnedBy::%{_pUUID}%::*}
+				set {warpOwners::%{_args::1}%} to {_pUUID}
+			else:
+				send "&cNo player currently named %{_args::2}% has played here. They may have changed their name, which you can check at https://namemc.com/." to the player
+				cancel event
+	else if "%command%" is "warp":
+		first 3 characters of "%arguments%" is "aaa"
+		player doesn't have permission "skript.mod"
+		cancel event
+		send "&cError:&4 That warp does not exist." to the player
+
+on command:
+	"%command%" is "delwarp", "remwarp" or "rmwarp"
+	player has permission "skript.admin"
+	set {_args::*} to arguments split at " "
+	set {_owner} to {warpOwners::%{_args::1}%}
+	remove all {_args::1} from {warpsOwnedBy::%{_owner}%::*}
+	delete {warpOwners::%{_args::1}%}
+
+command /checkwarp [<text="owner">] <text>:
+	permission: skript.mod
+	aliases: checkwarps
+	trigger:
+		if arg-1 is "owner", "getowner" or "checkowner":
+			set {_owner} to {name::%{warpOwners::%arg-2%}%}
+			if {_owner} is set:
+				send "&6The warp &c%arg-2%&6 is owned by &c%{_owner}%&6." to the command sender
+			else:
+				send "&cNo owner is registered for '%arg-2%'." to the command sender
+		
+		else if arg-1 is "ownedby":
+			if arg-2 is "Staff" or "Admin":
+				set {_pUUID} to "Staff"
+			else:
+				set {_pUUID} to UUID of (arg-2 parsed as offline player)
+				
+			if {name::%{_pUUID}%} is set:
+				send "&6%{name::%{_pUUID}%}% owns the following warps: &c%{warpsOwnedBy::%{_pUUID}%::*}%" to the command sender
+			else:
+				send "&cNo player currently named %arg-2% has played here. They may have changed their name, which you can check at https://namemc.com/." to the player
+
+
+#= Transfer BlockEntityTag info to placed chests for admins
+on place of chest or trapped chest:
+	player has permission "skript.admin"
+	player's gamemode isn't creative
+	if player's tool is a chest or trapped chest:
+		set {_t} to tag "BlockEntityTag" of nbt of player's tool
+	else:
+		set {_t} to tag "BlockEntityTag" of nbt of player's offhand tool
+	"%{_t}%" isn't "<none>"
+	wait 1 tick
+	block at event-location is chest or trapped chest
+	add "%{_t}%" to nbt of block at event-location
