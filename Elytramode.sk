@@ -32,12 +32,12 @@ command /elytramode [<player=%player%>]:
 				set {elytraModeActive::%player-argument's uuid%} to true
 				set elytra flight state of player-argument to true
 				send "&6Activated elytra mode." to the player-argument
-				set action bar of player-argument to "&6Elytra mode time: &c%secondsToTimespan({elytraModeTime::%player-argument's uuid%})%"
+				send action bar "&6Elytra mode time: &c%secondsToTimespan({elytraModeTime::%player-argument's uuid%})%" to player-argument
 			else:
 				delete {elytraModeActive::%player-argument's uuid%}
 				send "&6Deactivated elytra mode." to the player-argument
 				set elytra flight state of player-argument to false
-				set action bar of player-argument to ""
+				send action bar "" to player-argument
 
 #= Secondary command for checking a player's elytra mode time
 # Defaults to self
@@ -102,7 +102,7 @@ on afk toggle:
 	{elytraModeActive::%player's uuid%} is true
 	delete {elytraModeActive::%player's uuid%}
 	set player's elytra flight state to false
-	set action bar of player to ""
+	send action bar "" to player
 
 #= Core loop
 # Keeps track of elytra time, sends warnings, ends time when they run out, etc.
@@ -123,7 +123,7 @@ every 1 second:
 			# If they DO have any time, send displays and warnings
 			if {elytraModeTime::%loop-player's uuid%} > 0:
 				# Main display is as an action bar
-				set action bar of loop-player to "&6Elytra mode time: &c%secondsToTimespan({elytraModeTime::%loop-player's uuid%})%"
+				send action bar "&6Elytra mode time: &c%secondsToTimespan({elytraModeTime::%loop-player's uuid%})%" to loop-player
 		
 				# At certain key intervals, warnings are sent to chat directly
 				if {elytraModeTime::%loop-player's uuid%} is 60:
