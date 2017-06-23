@@ -1,0 +1,270 @@
+#= Registers a new quest. All values default to 0 instead of false.
+# PARAMETER SUMMARY:
+# quest - The name of the quest. This is both the name that's display to the player and the name used to store it internally.
+# objGoals - A list of key=value pairs separated by semicolons, where the key is a quest 'objective' and the value is its 'goal' value. 
+#					e.g. objGoals could be "Kill Ghast=3;Kill Vex=5" and then you would increment those objs when the respective mob is killed.
+# rewards - A list of items that will be given to the player when they complete the quest.
+# autocomplete - Whether the quest should automatically be finalized when all objectives are met (as the system automatically checks if all
+#					objectives are met whenever a objective is set/incremented). Setting to false lets you force them to redeem it manually (e.g. at a location).
+# repeatTime - How often they can repeat the quest. Setting to 0 seconds (default) makes it non-repeatable. Quests that are repeatable will show
+#					the number of times they've been completed in their summary screen.
+function registerQuest(quest: text, objGoals: text, rewards: items, autocomplete: boolean = false, repeatTime: timespan = 0 seconds):
+	set {quest::%{_quest}%} to {_quest}
+	delete {questData::%{_quest}%::*}
+	loop ({_objGoals} split at ";"):
+		set {_split::*} to loop-value split at "="
+		if "%{_split::2}%" parsed as a number is set:
+			set {questData::%{_quest}%::objGoals::%{_split::1}%} to "%{_split::2}%" parsed as a number
+		else:
+			set {questData::%{_quest}%::objGoals::%{_split::1}%} to {_split::2}
+		set {questData::%{_quest}%::objDisplays::%{_split::1}%} to {_split::1}
+		# Since Skript autosorts indices, we need to have a list that stores the proper objective order
+		add 1 to {_index}
+		set {questData::%{_quest}%::objIndices::%{_index}%} to {_split::1}
+	set {questData::%{_quest}%::rewards::*} to {_rewards::*}
+	set {questData::%{_quest}%::repeatTime} to {_repeatTime}
+	set {questData::%{_quest}%::autocomplete} to {_autocomplete}
+	set {questData::%{_quest}%::displayMode} to "AUTO"
+
+
+#= Sets the display mode for any number of quest objectives, which controls how that objective is shown in the /fabledquest info for its quest.
+# This is also a "key=value;key=value" system. The key is the objective, with the value being either "false" or "hide" (to hide that objective),
+# "true" or "show" (to display that objective with its display name as its objective name), or anything else to show that objective with the
+# name provided. Using the examples from above, I could do "Kill Ghast=Ghasts Killed;Kill Vex=false" to make Kill Ghast display as Ghasts Killed
+# wherever relevant while hiding Kill Vex. Usually you can just name the objectives as you want them to display so the custom display value is
+# unnecessary, but it's still useful for the "false"/"hide" setting (for internal-only objectives) or for "renaming" objectives without fucking up the
+# internal variables.
+# By default, they all use the "true"/"show" option -- showing, and with the same name as the objective itself.
+function setObjDisplays(quest: text, objDisplays: text):
+	loop ({_objDisplays} split at ";"):
+		set {_split::*} to loop-value split at "="
+		# Make sure the objective exists
+		if {questData::%{_quest}%::objGoals::%{_split::1}%} is set:
+			if {_split::2} is "true" or "show":
+				set {questData::%{_quest}%::objDisplays::%{_split::1}%} to {_split::1}
+			else:
+				set {questData::%{_quest}%::objDisplays::%{_split::1}%} to {_split::2}
+		# obj doesn't exist, send error to console.
+		else:
+			send "&cQUEST ERROR: Tried to set display for objective '%{_split::1}%' of quest '%{_quest}%' to '%{_split::2}%' but that objective doesn't exist" to console
+
+#= Sets the overall display mode for this quest's objectives
+# While the above function sets the display name for each objective in the quest summary, this controls the way the quest summary shows
+# objectives as a whole. AUTO always shows the first objective that they haven't completed, ALL means this quest always tries to display all
+# objectives (which can still be hidden individually via the setObjDisplays system), and NONE means it never tries to show any objectives
+# (basically a shorthand for setting them all to "false"/"hide", but lets you have them all named in the background yet hidden until you decide
+# to reveal them all at once or something).
+function setDisplayMode(quest: text, mode: text):
+	if {_mode} is "AUTO", "ALL" or "NONE":
+		set {questData::%{_quest}%::displayMode} to {_mode}
+	else:
+		send "&cInvalid display mode '%{_mode}%' for quest '%{_quest}%'." to console
+		
+#= Same as above but for an individual player's instance of a quest (so just that player at that moment will see objectives as per the display mode rules).
+function setPlayerDisplayMode(p: player, quest: text, mode: text):
+	if {_mode} is "AUTO", "ALL" or "NONE":
+		set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
+		set {quests::%{_UUID}%::%{_quest}%::displayMode} to {_mode}
+	else:
+		send "&cInvalid display mode '%{_mode}%' for quest '%{_quest}%'." to console
+
+#= Gets the display name of a quest's objective. More info above setObjDisplays^.
+function getObjDisplay(quest: text, objective: text) :: text:
+	return {questData::%{_quest}%::objDisplays::%{_objective}%}
+
+
+#= Respectively returns true or false if they have or haven't started the quest.
+# This is determined by if the quest's data has been transferred to the player's copy of the quest data list.
+# If they have no data for this quest, it means the transfer never happened or it has been deleted, so it assumes the quest isn't started.
+function hasStartedQuest(p: player, quest: text) :: boolean:
+	set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
+	if size of {quests::%{_UUID}%::%{_quest}%::*} > 0:
+		return true
+	else:
+		return false
+
+
+#= Begins a quest for a player (transfers its default data into a player-specific copy).
+function startQuest(p: player, quest: text, forceOverride: boolean = false):
+	set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
+	
+	# If the player has had the quest's data transferred already (and forceOverride is false as per default), we don't want to erase their progress.
+	if check [size of {quests::%{_UUID}%::%{_quest}%::*} > 0]->[{_forceOverride} is false]:
+		send "&cQUEST ERROR: Tried to initialize quest '%{_quest}%' for player '%{_p}%' but they already have started it. This will overwrite all of their saved quest info. If you're sure you want to do this, add 'true' as an extra argument to your startQuest call." to console
+	# Otherwise, we'll transfer the data -- if it exists.
+	else if size of {questData::%{_quest}%::*} > 0:
+		loop {questData::%{_quest}%::objGoals::*}:
+			set {quests::%{_UUID}%::%{_quest}%::%loop-index%} to 0
+		set {quests::%{_UUID}%::%{_quest}%::startDate} to now
+		set {quests::%{_UUID}%::%{_quest}%::displayMode} to {questData::%{_quest}%::displayMode}
+		send "&6You have started the quest &c%{_quest}%&6." to {_p}
+	# If it doesn't even exist, then the quest name was given incorrectly, so we'll send an error to console.
+	else:
+		send "&cQUEST ERROR: Tried to initialize quest '%{_quest}%' for player '%{_p}%' but no quest by that name exists." to console
+
+
+#= Gets the goal for a specific objective in a quest.
+# Functions are prettier than checking long variables.
+function getQuestGoal(quest: text, objective: text) :: object:
+	if "%{questData::%{_quest}%::objGoals::%{_objective}%}%" parsed as a number is set:
+		return "%{questData::%{_quest}%::objGoals::%{_objective}%}%" parsed as a number
+	else:
+		return "%{questData::%{_quest}%::objGoals::%{_objective}%}%"
+
+
+#= Similar to above, gets a player's progress on a specific objective
+function getPlayerObj(p: player, quest: text, objective: text) :: text:
+	set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
+	return "%{quests::%{_UUID}%::%{_quest}%::%{_objective}%}%"
+
+
+#= Helper, checks if the values of the two above functions are equal (AKA their score in an objective is the goal score)
+function hasCompletedObjective(p: player, quest: text, objective: text) :: boolean:
+	if (getPlayerObj({_p}, {_quest}, {_objective}) is getQuestGoal({_quest}, {_objective})):
+		return true
+	else:
+		return false
+
+
+#= Resets a quest's progress for a specific player. Do NOT do this before restarting a repeatable quest.
+# The system itself handles starting repeatable quests again.
+function resetQuestProgress(p: player, quest: text):
+	set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
+	delete {quests::%{_UUID}%::%{_quest}%::*}
+
+
+#= Completes a quest for a player.
+# There are no failsafes here to check their progress or anything -- this gives full control, but means you may call it before its true completion.
+# Generally you'll want to check "if checkQuestCompletion(player, <quest>) is true" before calling this to see if they've completed it.
+# (And of course, you'll only ever call this yourself if you turn off autocomplete for the quest).
+function completeQuest(p: player, quest: text):
+	set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
+	set {quests::%{_UUID}%::%{_quest}%::completed} to true
+	add 1 to {quests::%{_UUID}%::%{_quest}%::completions}
+	safelyGive({_p}, {questData::%{_quest}%::rewards::*})
+	send "&6You have completed the &c%{_quest}%&6 quest. Reward(s):&c %uncolored getDisplayName({questData::%{_quest}%::rewards::*})%&6." to {_p}
+	set {quests::%{_UUID}%::%{_quest}%::completionDate} to now
+
+
+#= Returns true/false based on if all quest objectives have been completed. If they have and the quest is autocompletable, it completes it.
+function checkQuestCompletion(p: player, quest: text) :: boolean:
+	set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
+	loop {questData::%{_quest}%::objGoals::*}:
+		if "%{quests::%{_UUID}%::%{_quest}%::%loop-index%}%" isn't "%loop-value%":
+			return false
+	if {questData::%{_quest}%::autocomplete} is true:
+		completeQuest({_p}, {_quest})
+	return true
+
+
+#= Checks if a quest is completed. Note that due to the autocomplete system, a quest can have all objectives yet but not be
+# complete until it's turned in. This checks the latter (that it's been handed in, thought it does forcibly do a completion update
+# to ensure it runs accurately).
+function hasCompletedQuest(p: player, quest: text) :: boolean:
+	set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
+	if "%{quests::%{_UUID}%::%{_quest}%::completed}%" isn't "true":
+		checkQuestCompletion({_p}, {_quest})
+	if {quests::%{_UUID}%::%{_quest}%::completed} is true:
+		return true
+	else:
+		return false
+
+
+#= Sets the goal value for a specific quest objective. objective must exist. 
+function setQuestObjGoal(quest: text, objective: text, newGoal: object):
+	{quests::%{_UUID}%::%{_quest}%::%{_objective}%} is set
+	set {questData::%{_quest}%::%{_objective}%} to {_newGoal}
+
+
+#= Adds a new objective to a quest.
+function addQuestObj(quest: text, objective: text, goal: object):
+	{questData::%{_quest}%::obj} is set
+	set {questData::%{_quest}%::objGoals::%{_objective}%} to {_goal}
+
+
+#= Adds 1 to a player's score in a specific quest objective. objective must exist and goal not already reached.
+function incrementPlayerObj(p: player, quest: text, objective: text):
+	set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
+	if {quests::%{_UUID}%::%{_quest}%::%{_objective}%} is set:
+		getQuestGoal({_quest}, {_objective}) > {quests::%{_UUID}%::%{_quest}%::%{_objective}%}
+		add 1 to {quests::%{_UUID}%::%{_quest}%::%{_objective}%}
+		checkQuestCompletion({_p}, {_quest})
+
+
+#= Sets a player's current score in a specific quest objective to a specific value. objective must exist.
+function setPlayerObj(p: player, quest: text, objective: text, newValue: object):
+	set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
+	if {quests::%{_UUID}%::%{_quest}%::%{_objective}%} is set:
+		set {_goalVal} to getQuestGoal({_quest}, {_objective})
+		if {_goalVal} is a number:
+			set {quests::%{_UUID}%::%{_quest}%::%{_objective}%} to clamp({_newValue}, 0, {_goalVal})
+		else:
+			set {quests::%{_UUID}%::%{_quest}%::%{_objective}%} to {_newValue}
+		checkQuestCompletion({_p}, {_quest})
+
+
+#= Checks if a player is enough time has passed for the player to be able to begin the quest.
+function repeatTimePassed(p: player, quest: text) :: boolean:
+	set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
+	if {quests::%{_UUID}%::%{_quest}%::completionDate} isn't set:
+		return true
+	else if difference between {quests::%{_UUID}%::%{_quest}%::completionDate} and now > {questData::%{_quest}%::repeatTime}:
+		return true
+	else:
+		return false
+
+
+
+
+#= Root command which gives feedback on quests
+command /fabledquest [<text="root">]:
+	permission: skript.admin
+	executable by: players
+	aliases: fabledquests, fq
+	trigger:
+		send ""
+		
+		if text-argument-1 is "root":
+			send "&c&m---==&c[ &6Quests &c]&m==---"
+			loop {quest::*}:
+				if hasStartedQuest(player, "%loop-index%") is true:
+					add "||&7%loop-value%||cmd:/fabledquest %loop-value%" to {_started::*}
+			json("%player%", "&cQuests Started: &7%{_started::*}%")
+			send "&cUse &7/fabledquest <quest>&c or click a quest name to check progress."
+			
+		else if hasStartedQuest(player, text-argument-1) is true:
+			send "&c&m---==&c[ &6&lQuest Status:&6 %text-argument-1% &c]&m==---"
+			send "&6Started:&c %{quests::%player's UUID%::%text-argument-1%::startDate}%"
+			if hasCompletedQuest(player, text-argument-1) is true:
+				if {questData::%text-argument-1%::repeatTime} > 0 seconds:
+					send "&6Times Completed:&c %{quests::%player's UUID%::%text-argument-1%::completions}%"
+					send "&6Last Completed:&c %{quests::%player's UUID%::%text-argument-1%::completionDate}%"
+				else:
+					send "&6Completed:&c %{quests::%player's UUID%::%text-argument-1%::completionDate}%"
+				send "&6Reward(s):&c %uncolored getDisplayName({questData::%text-argument-1%::rewards::*})%"
+			else:
+				{questData::%text-argument-1%::displayMode} isn't "NONE"
+				loop {questData::%text-argument-1%::objIndices::*}:
+					set {_display} to {questData::%text-argument-1%::objDisplays::%loop-value%}
+					"%{_display}%" isn't "hide" or "false"
+					if check [{_goalTabSent} isn't set]->[{questData::%text-argument-1%::displayMode} is "ALL"]:
+						set {_goalTabSent} to true
+						send "&6&lGoals:"
+					
+					replace all "%%goal%%" in {_display} with "%getQuestGoal(text-argument-1, loop-value)%"
+					replace all "%%score%%" in {_display} with getPlayerObj(player, text-argument-1, loop-value)
+					
+					if "%getPlayerObj(player, text-argument-1, loop-value)%" is "%getQuestGoal(text-argument-1, loop-value)%":
+						{questData::%text-argument-1%::displayMode} is "ALL"
+						send "   &8◊ &6%{_display}% &c(Completed!)"
+					else:
+						if {questData::%text-argument-1%::displayMode} is "AUTO":
+							send "&6Current Goal:&c %{_display}%"
+							stop loop
+						else:
+							send "   &8◊ &6%{_display}%"
+
+		else:
+			send "&cYou have not started a quest titled '%text-argument-1%'."
+			
+		send ""
