@@ -36,10 +36,10 @@ function getTags(entityToCheck: entity) :: texts:
 #						tag: which tag to check entityToCheck for
 # @returns:		True if entityToCheck has the tag, false otherwise.
 function hasTag(entityToCheck: entity, tag: text) :: boolean:
-	if "%tag ""Tags"" of nbt of {_entityToCheck}%" contains ":""%{_tag}%""":
+	loop scoreboard tag of {_entityToCheck}:
+		"%loop-value%" is "%{_tag}%"
 		return true
-	else:
-		return false
+	return false
 
 	
 # @desc:			Tells you whether or not the provided entity has the provided key=value tag. This will not return false 
@@ -50,7 +50,7 @@ function hasTag(entityToCheck: entity, tag: text) :: boolean:
 #						tag: which key tag to check entityToCheck for
 # @returns:		True if entityToCheck has the tag, false otherwise.
 function hasKeyValueTag(entityToCheck: entity, key: text) :: boolean:
-	if "%tag ""Tags"" of nbt of {_entityToCheck}%" contains ":""%{_key}%=":
+	if "%tag ""Tags"" of nbt of {_entityToCheck}%" contains """%{_key}%=":
 		return true
 	else:
 		return false
@@ -85,14 +85,8 @@ function getKeyValueTag(entityToCheck: entity, key: text) :: text:
 # @desc:			Removes an entire key-value tag from the entity.
 # @params:	The key of the key=value tag to remove.
 function removeKeyValueTag(entityToUntag: entity, key: text):
-	set {_tags::*} to getTags({_entityToUntag})
 	set {_len} to length of {_key}
-	loop {_tags::*}:
+	loop scoreboard tag of {_entityToUntag}:
 		first {_len} + 1 characters of loop-value is "%{_key}%="
-		remove loop-value from {_tags::*}
-		stop loop
-	set {_newTag} to join {_tags::*} with ","
-	if "%{_newTag}%" is "<none>":
-		add "{Tags:[]}" to nbt of {_entityToUntag}
-	else:
-		add "{Tags:[%{_newTag}%]}" to nbt of {_entityToUntag}
+		remove loop-value from scoreboard tag of {_entityToUntag}
+		stop
