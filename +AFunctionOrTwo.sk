@@ -1,11 +1,3 @@
-# @desc:			Creates  a string based on the entity's UUIDLeast and UUIDMost tags. Should be unique to each entity.
-# @params: 	e: the entity to get the UUID string for
-# @returns:		The string of the combined UUIDLeast and UUIDMost tags
-function getUUID(e: entity) :: text:
-	return "%tag ""UUIDLeast"" of nbt of {_e}%%tag ""UUIDMost"" of nbt of {_e}%"
-
-
-
 # @desc:			Creates a string representing the components of a location for use in console commands.
 # @params:	loc: The location to create a string for.
 #						xOff: The offset to apply to loc's x coordinate. Optional. Defaults to 0.
@@ -14,6 +6,31 @@ function getUUID(e: entity) :: text:
 # @returns:		The string representing the three components of the location with the offset applied.
 function locString(loc: location, xOff: number = 0, yOff: number = 0, zOff: number = 0) :: string:
 	return "%{_loc}'s x location + {_xOff}% %{_loc}'s y location + {_yOff}% %{_loc}'s z location + {_zOff}%"
+
+# @desc:			Turns a location string into a location. Expected format is normal Skript location string ("x: X, y: Y, z: Z")
+# @params:	string: The string to parse into a location.
+# 				world:	The name of the world the location should be in (as location strings normally don't display this)
+function locFromString(string: text, world: text) :: location:
+	set {_parts::*} to {_string} parsed as "x: %number%, y: %number%, z: %number%"
+	if size of {_parts::*} is 3:
+		return location({_parts::1}, {_parts::2}, {_parts::3}, world({_world}))
+	else:
+		return location(0, 0, 0, world({_world}))
+		send "ERROR: Invalid location string '%{_string}%' sent to locFromString." to console
+
+# @desc:			Returns a location with the correct offsets north/south, east/west, or up/down
+# Prefers north/east but can use negative to get opposite (negative for NSoff gives south)
+function locOffset(loc: location, NSoff: number = 0, EWoff: number = 0, UDoff: number = 0) :: location:
+	return location {_NSoff} meters north and {_EWoff} meters east and {_UDoff} meters above {_loc}
+	
+# @desc:			Same as above but local for the entity's facing (so north/south becomes forward/back),
+# east/west becomes left/right, etc. isHorizontal controls if the forward/back should be horizontal
+# (AKA independent of pitch).
+function locOffsetRel(e: entity, FBoff: number = 0, LRoff: number = 0, UDoff: number = 0, isHorizontal: boolean = false) :: location:
+	if {_isHorizontal} is true:
+		return location {_FBoff} meters horizontally in front of and {_LRoff} meters east and {_UDoff} meters above {_e}
+	else:
+		return location {_FBoff} meters in front of and {_LRoff} meters east and {_UDoff} meters above {_e}
 
 
 
@@ -143,6 +160,19 @@ function sendWithPerms(msg: text, perm: text):
 		if loop-player has permission "%{_perm}%":
 			send "%{_msg}%" to loop-player
 
+# @desc:			Returns all players in a specific region.
+function playersInRegion(region: text) :: players:
+	loop players:
+		if "%region at loop-player%" contains "%{_region}%":
+			add loop-player to {_returns::*}
+	return {_returns::*}
+
+# @desc:			Sends the provided message to all players in the specified region.
+function sendInRegion(msg: text, region: text):
+	loop players:
+		if "%region at loop-player%" contains "%{_region}%":
+			send "%{_msg}%" to loop-player
+
 
 
 # @desc:			Makes the given entity look at a specific location.
@@ -184,10 +214,10 @@ function secondsToTimespan(seconds: number) :: text:
 #	@params:	p: player to send the cooldown to
 #						i: the item type to disable (e.g. "slimeball", not "player's tool")
 #						duration: how many ticks to disable the item for
-function setCooldown(p: player, itemType: item, duration: integer):
+function setCooldown(p: player, itemType: item, duration: timespan):
 	set {_packet} to new play_server_set_cooldown packet
 	set "item" pinfo 0 of {_packet} to {_itemType}
-	set int pnum 0 of {_packet} to {_duration}
+	set int pnum 0 of {_packet} to ({_duration} converted into ticks)
 	send packet {_packet} to {_p}
 
 
@@ -195,18 +225,27 @@ function setCooldown(p: player, itemType: item, duration: integer):
 # @desc:			Tries to give items to a player, and if they can't hold them, it drops it all at their feet instead.
 # @params:	p: player to give the item to
 #						i: the items to drop
-function safelyGive(p: player, i: items):
+function safelyGive(p: player, i: items, playEffects: boolean = true) :: boolean:
+	set {_pUUID} to {_p}'s UUID
+	set {_heldAll} to true
+	if {_playEffects} is true:
+		execute({_p}, "playsound entity.item.pickup player @a")
 	loop {_i::*}:
 		set {_maxStackSize} to max stack size of loop-value
-		if {_p} can hold loop-value:
+		if check | "%{_p}'s world%" is "Soulthief" | -> | "%region at {_p}%" contains "arena" or "laputa" |:
+			add loop-value to {itemQueue::%{_pUUID}%::*}
+			set {_heldAll} to false
+		else if {_p} can hold loop-value:
 			give loop-value to {_p}
 		else:
+			set {_heldAll} to false
 			if amount of loop-value > {_maxStackSize}:
 				drop (amount of loop-value mod {_maxStackSize}) of loop-value at {_p}'s head
 				loop floor(amount of loop-value/{_maxStackSize}) times:
 					drop {_maxStackSize} of loop-value-1 at {_p}'s head
 			else:
 				drop loop-value at {_p}'s head
+	return {_heldAll}
 
 
 # @desc			Plays the arm swing animation on a player.
@@ -237,16 +276,16 @@ function listContains(list: objects, value: object) :: boolean:
 function getDisplayName(itemsToDisplay: items) :: texts:
 	loop {_itemsToDisplay::*}:
 		set {_i} to (amount of loop-value) of loop-value
-		set {_name} to tag "display" of NBT of {_i}
-		set {_name} to tag "Name" of {_name}
 		disenchant {_i}
-
+		set {_name} to tag "display" of NBT of {_i}
+		set {_name} to "%tag ""Name"" of {_name}%"
 		if {_name} isn't "<none>":
 			if item amount of {_i} > 1:
 				add "%item amount of {_i}% %{_name}%" to {_returns::*}
 			else:
 				add "%{_name}%" to {_returns::*}
 		else:
+			set {_i} to type of "%{_i}%" parsed as item
 			add "%{_i}%" to {_returns::*}
 		
 		delete {_name}
@@ -280,3 +319,100 @@ function getArmorValue(e: living entity) :: number:
 		add {_armorVal} to {_total}
 	return {_total}
 
+
+# @desc		Gets the XP multiplier for a certain entity type directly from the mcMMO config
+function getMCMMOMultiplier(e: entity) :: number:
+	if {_e} isn't a living entity:
+		return 0
+	else:
+		set {_type} to first char in each word of "%{_e}%" to caps
+		replace all " " in {_type} with ""
+		set {_val} to yaml value "Experience.Combat.Multiplier.%{_type}%" from file "plugins/mcMMO/experience.yml"
+		if {_val} is set:
+			return "%{_val}%" parsed as number
+		else:
+			return 1
+
+
+# @desc 		Returns a string of "hostile", "neutral", or "passive" representing the hostility level of an entity.
+# The optional boolean (defaulting to false) determines if we should check situationally (AKA, if the mob is CURRENTLY
+# hostile, not by default, e.g. a llama currently spitting at a player)
+function getHostility(e: living entity, situational: boolean = true) :: text:
+	set {_type} to "%{_e}.getType()%"
+	set {_hostiles::*} to "CREEPER", "ELDER_GUARDIAN", "ENDERMITE", "EVOKER", "GHAST", "GUARDIAN", "HUSK", "MAGMA_CUBE", "SHULKER", "SILVERFISH", "SKELETON", "SLIME", "STRAY", "VEX", "VINDICATOR", "WITCH", "WITHER_SKELETON", "ZOMBIE", "ZOMBIE_VILLAGER", "ILLUSIONER", "ENDER_DRAGON" and "WITHER"
+	set {_neutrals::*} to "CAVE_SPIDER", "ENDERMAN", "IRON_GOLEM", "LLAMA", "OCELOT", "PIG_ZOMBIE", "POLAR_BEAR", "SPIDER" and "WOLF"
+	if listContains({_hostiles::*}, {_type}) is true:
+		return "hostile"
+	else if listContains({_neutrals::*}, {_type}) is true:
+		if {_situational} is true:
+			{_e}'s target is a player
+			return "hostile"
+		if {_type} is "POLAR_BEAR":
+			{_e}.isAdult() is false
+			return "passive"
+		else:
+			return "neutral"
+	else:
+		return "passive"
+
+
+# @desc		Rotates an entity's yaw and pitch by the given amounts. Doesn't work on players.
+function rotateEntity(e: living entity, yawRotate: number, pitchRotate: number = 0):
+	set {_oldRotations::*} to split "%tag ""Rotation"" of NBT of {_e}%" at "f,"
+	replace all "[" and "f]" in {_oldRotations::*} with ""
+	set {_yawRotate} to ({_oldRotations::1} parsed as number) + {_yawRotate}
+	set {_pitchRotate} to ({_oldRotations::2} parsed as number) + {_pitchRotate}
+	add "{Rotation:[%{_yawRotate}%f,%{_pitchRotate}%f]}" to NBT of {_e}
+
+
+# @desc 		Runs {_command} as a console /execute from {_p}.
+# Not sure about this one but wanted to see if it felt better to use.
+function execute(p: player, command: text):
+	console command "execute %{_p}% ~ ~ ~ %{_command}%"
+
+
+# @desc		Adds NBT to an item within a dropped item, which normally doesn't work very well.
+function addDropNBT(drop: entity, NBT: text):
+	{_drop} is a dropped item
+	set {_items::*} to items within entity {_drop}
+	set {_dropNBT} to NBT of {_items::1}
+	if first character of {_NBT} is "{":
+		add "%{_NBT}%" to {_dropNBT}
+	else:
+		add "{%{_NBT}%}" to {_dropNBT}
+	set {_items::1} to {_items::1} with custom NBT "%{_dropNBT}%"
+	set items within entity {_drop} to {_items::1}
+
+
+# @desc		Returns true if two items are the same type and have the same lore.
+function safelyCompare(i1: item, i2: item) :: boolean:
+	if {_i1}.getType() is {_i2}.getType():
+		"%{_i1}'s lore%" contains "%{_i2}'s lore%"
+		return true
+	return false
+
+
+# @desc		Returns the location roughly where a player's hand appears to be from their POV.
+function getHandLoc(p: player) :: location:
+	return the location 0.65 meters right and 0.75 meters in front and 1.4 meters above {_p}
+
+
+# @desc		Returns a list with the given indices set to the given values (mapped 1-to-1)
+# NOTE: does NOT currently work due to a Skript bug (lists returned from functions don't keep index)
+function getMappedList(indices: objects, values: objects) :: objects:
+	loop {_indices::*}:
+		set {_val} to "%loop-value%"
+		set {_return::%{_val}%} to {_values::%loop-index%}
+	if size of {_values::*} > size of {_indices::*}:
+		loop integers from (size of {_indices::*} + 1) to size of {_values::*}:
+			add {_values::%loop-value%} to {_return::*}
+	loop {_return::*}:
+		send "%loop-index%::%loop-value%" to "Mr_Simba" parsed as player
+	return {_return::*}
+
+
+# @desc		Sends a message with a specific line on either side
+function sendBordered(p: player, msg: text, border: text = ""):
+	send "%{_border}%" to {_p}
+	send "%{_msg}%" to {_p}
+	send "%{_border}%" to {_p}
