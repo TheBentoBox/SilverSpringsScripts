@@ -8,19 +8,15 @@
 #					objectives are met whenever a objective is set/incremented). Setting to false lets you force them to redeem it manually (e.g. at a location).
 # repeatTime - How often they can repeat the quest. Setting to 0 seconds (default) makes it non-repeatable. Quests that are repeatable will show
 #					the number of times they've been completed in their summary screen.
-function registerQuest(quest: text, objGoals: text, rewards: items, autocomplete: boolean = false, repeatTime: timespan = 0 seconds):
+function registerQuest(quest: text, objectiveIDs: texts, objectiveGoals: objects, rewards: objects = 0 air, autocomplete: boolean = false, repeatTime: timespan = 0 seconds):
 	set {quest::%{_quest}%} to {_quest}
 	delete {questData::%{_quest}%::*}
-	loop ({_objGoals} split at ";"):
-		set {_split::*} to loop-value split at "="
-		if "%{_split::2}%" parsed as a number is set:
-			set {questData::%{_quest}%::objGoals::%{_split::1}%} to "%{_split::2}%" parsed as a number
-		else:
-			set {questData::%{_quest}%::objGoals::%{_split::1}%} to {_split::2}
-		set {questData::%{_quest}%::objDisplays::%{_split::1}%} to {_split::1}
+	loop {_objectiveGoals::*}:
+		set {questData::%{_quest}%::objGoals::%{_objectiveIDs::%loop-index%}%} to loop-value
+		set {questData::%{_quest}%::objDisplays::%{_objectiveIDs::%loop-index%}%} to "%{_objectiveIDs::%loop-index%}%"
 		# Since Skript autosorts indices, we need to have a list that stores the proper objective order
 		add 1 to {_index}
-		set {questData::%{_quest}%::objIndices::%{_index}%} to {_split::1}
+		set {questData::%{_quest}%::objIndices::%{_index}%} to "%{_objectiveIDs::%loop-index%}%"
 	set {questData::%{_quest}%::rewards::*} to {_rewards::*}
 	set {questData::%{_quest}%::repeatTime} to {_repeatTime}
 	set {questData::%{_quest}%::autocomplete} to {_autocomplete}
@@ -38,12 +34,20 @@ function registerQuest(quest: text, objGoals: text, rewards: items, autocomplete
 function setObjDisplays(quest: text, objDisplays: text):
 	loop ({_objDisplays} split at ";"):
 		set {_split::*} to loop-value split at "="
+		if {_split::2} is "true" or "show":
+			set {_split::2} to {_split::1}
 		# Make sure the objective exists
 		if {questData::%{_quest}%::objGoals::%{_split::1}%} is set:
-			if {_split::2} is "true" or "show":
-				set {questData::%{_quest}%::objDisplays::%{_split::1}%} to {_split::1}
-			else:
-				set {questData::%{_quest}%::objDisplays::%{_split::1}%} to {_split::2}
+			set {questData::%{_quest}%::objDisplays::%{_split::1}%} to {_split::2}
+		else if "%{_split::1}%" is "all":
+			loop {questData::%{_quest}%::objIndices::*}:
+				set {questData::%{_quest}%::objDisplays::%loop-value-2%} to {_split::2}
+		else if "%{_split::1}%" contains "&":
+			loop ({_split::1} split at "&"):
+				if {questData::%{_quest}%::objGoals::%loop-value-2%} is set:
+					set {questData::%{_quest}%::objDisplays::%loop-value-2%} to {_split::2}
+				else:
+					send "&cQUEST ERROR: Tried to set display for objective '%loop-value-2%' of quest '%{_quest}%' to '%{_split::2}%' but that objective doesn't exist" to console
 		# obj doesn't exist, send error to console.
 		else:
 			send "&cQUEST ERROR: Tried to set display for objective '%{_split::1}%' of quest '%{_quest}%' to '%{_split::2}%' but that objective doesn't exist" to console
@@ -54,23 +58,29 @@ function setObjDisplays(quest: text, objDisplays: text):
 # objectives (which can still be hidden individually via the setObjDisplays system), and NONE means it never tries to show any objectives
 # (basically a shorthand for setting them all to "false"/"hide", but lets you have them all named in the background yet hidden until you decide
 # to reveal them all at once or something).
-function setDisplayMode(quest: text, mode: text):
-	if {_mode} is "AUTO", "ALL" or "NONE":
+function setDisplayMode(quest: text, mode: text, groups: texts):
+	if {_mode} is "AUTO", "ALL", "NONE" or "GROUPED":
 		set {questData::%{_quest}%::displayMode} to {_mode}
+		if {_mode} is "GROUPED":
+			set {questData::%{_quest}%::displayGroups::*} to {_groups::*}
 	else:
 		send "&cInvalid display mode '%{_mode}%' for quest '%{_quest}%'." to console
 		
 #= Same as above but for an individual player's instance of a quest (so just that player at that moment will see objectives as per the display mode rules).
 function setPlayerDisplayMode(p: player, quest: text, mode: text):
-	if {_mode} is "AUTO", "ALL" or "NONE":
+	if {_mode} is "AUTO", "ALL", "NONE" or "GROUPED":
 		set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
 		set {quests::%{_UUID}%::%{_quest}%::displayMode} to {_mode}
 	else:
 		send "&cInvalid display mode '%{_mode}%' for quest '%{_quest}%'." to console
 
-#= Gets the display name of a quest's objective. More info above setObjDisplays^.
-function getObjDisplay(quest: text, objective: text) :: text:
-	return {questData::%{_quest}%::objDisplays::%{_objective}%}
+#= Gets the display name of a quest's objective relative to a player. More info above setObjDisplays^.
+function getObjDisplay(p: player, quest: text, objective: text) :: text:
+	set {_display} to {questData::%{_quest}%::objDisplays::%{_objective}%}	
+	replace all "%%objective%%" in {_display} with {_objective}
+	replace all "%%goal%%" in {_display} with "%getQuestGoal({_quest}, {_objective})%"
+	replace all "%%score%%" in {_display} with "%getPlayerObj({_p}, {_quest}, {_objective})%"
+	return {_display}
 
 
 #= Respectively returns true or false if they have or haven't started the quest.
@@ -85,11 +95,14 @@ function hasStartedQuest(p: player, quest: text) :: boolean:
 
 
 #= Begins a quest for a player (transfers its default data into a player-specific copy).
-function startQuest(p: player, quest: text, forceOverride: boolean = false):
+function sendStartQuest(p: player, quest: text):	
+	send "&6You have started the quest &c%{_quest}%&6. You can view your progress with &c/fabledquest %{_quest}%&6." to {_p}
+	execute({_p}, "playsound block.note.chime master @p ~ ~ ~ 1 0")
+function startQuest(p: player, quest: text, sendStartMsg: boolean = true, forceOverride: boolean = false):
 	set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
 	
 	# If the player has had the quest's data transferred already (and forceOverride is false as per default), we don't want to erase their progress.
-	if check [size of {quests::%{_UUID}%::%{_quest}%::*} > 0]->[{_forceOverride} is false]:
+	if check |size of {quests::%{_UUID}%::%{_quest}%::*} > 0|->|{_forceOverride} is false|:
 		send "&cQUEST ERROR: Tried to initialize quest '%{_quest}%' for player '%{_p}%' but they already have started it. This will overwrite all of their saved quest info. If you're sure you want to do this, add 'true' as an extra argument to your startQuest call." to console
 	# Otherwise, we'll transfer the data -- if it exists.
 	else if size of {questData::%{_quest}%::*} > 0:
@@ -97,20 +110,14 @@ function startQuest(p: player, quest: text, forceOverride: boolean = false):
 			set {quests::%{_UUID}%::%{_quest}%::%loop-index%} to 0
 		set {quests::%{_UUID}%::%{_quest}%::startDate} to now
 		set {quests::%{_UUID}%::%{_quest}%::displayMode} to {questData::%{_quest}%::displayMode}
-		send "&6You have started the quest &c%{_quest}%&6." to {_p}
+		set {quests::%{_UUID}%::%{_quest}%::completed} to false
+		if {_sendStartMsg} is true:
+			send "&6You have started the quest &c%{_quest}%&6. You can view your progress with &c/fabledquest %{_quest}%&6." to {_p}
+			execute({_p}, "playsound block.note.chime master @p ~ ~ ~ 1 0")
 	# If it doesn't even exist, then the quest name was given incorrectly, so we'll send an error to console.
 	else:
 		send "&cQUEST ERROR: Tried to initialize quest '%{_quest}%' for player '%{_p}%' but no quest by that name exists." to console
-
-
-#= Gets the goal for a specific objective in a quest.
-# Functions are prettier than checking long variables.
-function getQuestGoal(quest: text, objective: text) :: object:
-	if "%{questData::%{_quest}%::objGoals::%{_objective}%}%" parsed as a number is set:
-		return "%{questData::%{_quest}%::objGoals::%{_objective}%}%" parsed as a number
-	else:
-		return "%{questData::%{_quest}%::objGoals::%{_objective}%}%"
-
+	
 
 #= Similar to above, gets a player's progress on a specific objective
 function getPlayerObj(p: player, quest: text, objective: text) :: text:
@@ -118,9 +125,17 @@ function getPlayerObj(p: player, quest: text, objective: text) :: text:
 	return "%{quests::%{_UUID}%::%{_quest}%::%{_objective}%}%"
 
 
+#= Gets the goal for a specific objective in a quest.
+# Functions are prettier than checking long variables.
+function getQuestGoal(quest: text, objective: text) :: object:
+	return {questData::%{_quest}%::objGoals::%{_objective}%}
+
+
 #= Helper, checks if the values of the two above functions are equal (AKA their score in an objective is the goal score)
 function hasCompletedObjective(p: player, quest: text, objective: text) :: boolean:
-	if (getPlayerObj({_p}, {_quest}, {_objective}) is getQuestGoal({_quest}, {_objective})):
+	if {questData::%{_quest}%::objGoals::%{_objective}%} isn't set:
+		return false
+	else if ("%getPlayerObj({_p}, {_quest}, {_objective})%" is "%getQuestGoal({_quest}, {_objective})%"):
 		return true
 	else:
 		return false
@@ -133,6 +148,18 @@ function resetQuestProgress(p: player, quest: text):
 	delete {quests::%{_UUID}%::%{_quest}%::*}
 
 
+#= Returns a proper list of rewards for the given quest
+function getQuestRewards(quest: text) :: objects:
+	loop {questData::%{_quest}%::rewards::*}:
+		if "%loop-value.getClass()%" contains "Item":
+			add uncolored getDisplayName(loop-value) to {_rewards::*}
+		else if "%loop-value.getClass()%" contains "Long", "Float" or "Double":
+			add "%loop-value% Silver" to {_rewards::*}
+		else:
+			add loop-value to {_rewards::*}
+	return {_rewards::*}
+
+
 #= Completes a quest for a player.
 # There are no failsafes here to check their progress or anything -- this gives full control, but means you may call it before its true completion.
 # Generally you'll want to check "if checkQuestCompletion(player, <quest>) is true" before calling this to see if they've completed it.
@@ -142,15 +169,18 @@ function completeQuest(p: player, quest: text):
 	set {quests::%{_UUID}%::%{_quest}%::completed} to true
 	add 1 to {quests::%{_UUID}%::%{_quest}%::completions}
 	safelyGive({_p}, {questData::%{_quest}%::rewards::*})
-	send "&6You have completed the &c%{_quest}%&6 quest. Reward(s):&c %uncolored getDisplayName({questData::%{_quest}%::rewards::*})%&6." to {_p}
+	execute({_p}, "playsound ui.toast.challenge_complete master %{_p}% ~ ~ ~ 0.5 1")
+	if {questData::%{_quest}%::rewards::*} is 0 air:
+		send "&6You have completed the quest &c%{_quest}%&6." to {_p}
+	else:
+		send "&6You have completed the &c%{_quest}%&6 quest. Reward(s):&c %getQuestRewards({_quest})%&6." to {_p}
 	set {quests::%{_UUID}%::%{_quest}%::completionDate} to now
-
 
 #= Returns true/false based on if all quest objectives have been completed. If they have and the quest is autocompletable, it completes it.
 function checkQuestCompletion(p: player, quest: text) :: boolean:
 	set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
 	loop {questData::%{_quest}%::objGoals::*}:
-		if "%{quests::%{_UUID}%::%{_quest}%::%loop-index%}%" isn't "%loop-value%":
+		if hasCompletedObjective({_p}, {_quest}, "%loop-index%") is false:
 			return false
 	if {questData::%{_quest}%::autocomplete} is true:
 		completeQuest({_p}, {_quest})
@@ -162,9 +192,15 @@ function checkQuestCompletion(p: player, quest: text) :: boolean:
 # to ensure it runs accurately).
 function hasCompletedQuest(p: player, quest: text) :: boolean:
 	set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
-	if "%{quests::%{_UUID}%::%{_quest}%::completed}%" isn't "true":
+	if {quests::%{_UUID}%::%{_quest}%::completed} isn't true:
 		checkQuestCompletion({_p}, {_quest})
 	if {quests::%{_UUID}%::%{_quest}%::completed} is true:
+		return true
+	else:
+		return false
+
+function isQuestInProgress(p: player, quest: text) :: boolean:
+	if check |hasStartedQuest({_p}, {_quest}) is true| -> |hasCompletedQuest({_p}, {_quest}) is false|:
 		return true
 	else:
 		return false
@@ -178,7 +214,6 @@ function setQuestObjGoal(quest: text, objective: text, newGoal: object):
 
 #= Adds a new objective to a quest.
 function addQuestObj(quest: text, objective: text, goal: object):
-	{questData::%{_quest}%::obj} is set
 	set {questData::%{_quest}%::objGoals::%{_objective}%} to {_goal}
 
 
@@ -208,63 +243,218 @@ function repeatTimePassed(p: player, quest: text) :: boolean:
 	set {_UUID} to UUID of ("%{_p}%" parsed as offline player)
 	if {quests::%{_UUID}%::%{_quest}%::completionDate} isn't set:
 		return true
+	else if {questData::%{_quest}%::repeatTime} is 0 seconds:
+		return false
 	else if difference between {quests::%{_UUID}%::%{_quest}%::completionDate} and now > {questData::%{_quest}%::repeatTime}:
 		return true
 	else:
 		return false
+		
+
+#= Sends a bunch of messages to a player with a set delay between them
+# Just a useful util for sending dialog so we don't have to do loops and delays and stuff every time
+function sendMessages(p: player, delay: timespan, prefix: text, messages: texts, soundArgs: text = "entity.item.pickup 0.5 0.75", quest: text = "", doReturn: boolean = true) :: timespan: 
+	if {_doReturn} is true:
+		loop size of {_messages::*} times:
+			add {_delay} to {_totalSequenceTime}
+		sendMessages({_p}, {_delay}, {_prefix}, {_messages::*}, {_soundArgs}, {_quest}, false)
+		return {_totalSequenceTime}
+	else:
+		if {_soundArgs} is "default":
+			set {_soundArgs::*} to "entity.item.pickup", 0.5 and 0.75
+		else:
+			set {_soundArgs::*} to {_soundArgs} split at " "
+			if size of {_soundArgs::*} < 3:
+				add 1 to {_soundArgs::*}
+				if size of {_soundArgs::*} < 3:
+					add 1 to {_soundArgs::*}
+		loop {_messages::*}:
+			# Just a little check so we don't do a double space if they included one in the prefix
+			if last character of {_prefix} is " ":
+				send "%{_prefix}%%loop-value%" to {_p}
+			else:
+				send "%{_prefix}% %loop-value%" to {_p}
+			if {_soundArgs} isn't "none" or "silent":
+				execute({_p}, "playsound %{_soundArgs::1}% master %{_p}% ~ ~ ~ %{_soundArgs::2}% %{_soundArgs::3}%")
+				execute({_p}, "playsound entity.item.pickup master %{_p}% ~ ~ ~ 0.5 0.75")
+			wait {_delay}
+		if size of {questData::%{_quest}%::*} > 0:
+			sendQuestReminder({_p}, {_quest})
+
+# Allows players to set a list of objectives for a quest that stop automatically tracking when another
+# objective is completed. This is necessary when (for example) you must turn in collected items to complete
+# an objective and the quest has to know that the items are gone from your inventory for a reason (because
+# they've fulfilled their purpose, not because you're missing them).
+function setTrackingLocks(quest: text, trackedObjLocks: texts):
+	loop {_trackedObjLocks::*}:
+		set {_split::*} to loop-value split at "="
+		if {_split::1} contains "|":
+			loop {_split::1} split at "|":
+				if check | {questData::%{_quest}%::objGoals::%loop-value-2%} is set | -> | {questData::%{_quest}%::objGoals::%{_split::2}%} is set |:
+					set {questData::%{_quest}%::objLocks::%loop-value-2%} to {_split::2}
+				else:
+					send "&cQUEST ERROR: Tried to set tracking lock for objective '%loop-value-2%' of quest '%{_quest}%' to '%{_split::2}%' but one of both those objectives don't exist" to console
+		else:
+			if check | {questData::%{_quest}%::objGoals::%{_split::1}%} is set | -> | {questData::%{_quest}%::objGoals::%{_split::2}%} is set |:
+				set {questData::%{_quest}%::objLocks::%{_split::1}%} to {_split::2}
+			else:
+				send "&cQUEST ERROR: Tried to set tracking lock for objective '%{_split::1}%' of quest '%{_quest}%' to '%{_split::2}%' but one of both those objectives don't exist" to console
+		
+#= Sets the items that should be automatically tracked by each objective. 
+# 'objectives' can be set to "all" to apply the goals for all objectives
+# 'goals' can be set to "auto" to make it automatically try to find an item in the itemSK database that matches the objective's name (with or without spaces)
+# e.g. if the objective ID is "Metamorphic Bark", it will automatically set the item the objective tracks to {item.Metamorphic Bark} or {item.MetamorphicBark} (whichever exists)
+# Combine this with appropriately named objectives and you can just setGoalTracking(quest, "all", "auto") to make all of your needed objectives automatically track their needed items
+function setGoalTracking(quest: text, objectives: texts, goals: objects):
+	if "%{_objectives::*}%" is "all":
+		set {_objectives::*} to {questData::%{_quest}%::objIndices::*}
+	loop {_objectives::*}:
+		if "%{_goals::*}%" is "auto":
+			if {item.%loop-value%} is set:
+				set {questData::%{_quest}%::tracking::%loop-value%} to {item.%loop-value%}
+			else:
+				set {_fixedValue} to "%loop-value%"
+				replace all " " in {_fixedValue} with ""
+				set {questData::%{_quest}%::tracking::%loop-value%} to {item.%{_fixedValue}%}
+		else:
+			set {questData::%{_quest}%::tracking::%loop-value%} to {_goals::%loop-index%}
+
+#= Returns how many of an objective's tracked item a player currently has in their inventory.
+function getTrackedObjectiveStatus(p: player, quest: text, objective: text) :: number:
+	set {_item} to 1 of {questData::%{_quest}%::tracking::%{_objective}%}
+	if {_item} is set:
+		set {_trackerLore} to uncolored "%{_item}.getItemMeta().getLore()%"
+		loop items in {_p}'s inventory:
+			set {_loopLore} to uncolored "%loop-value-1.getItem().getItemMeta().getLore()%" 
+			if "%{_trackerLore}%" is "%{_loopLore}%":
+				return number of loop-value in {_p}'s inventory
+	return 0
+	
+#= Forces an update of the player's progress in {_quest}'s objectives for the objectives
+# that have an automatic tracker associated with them.
+function updateFromTrackers(p: player, quest: text):
+	loop {questData::%{_quest}%::tracking::*}:
+		set {_class} to "%loop-value.getClass()%"
+		if {_class} contains "ItemStack":
+			set {_lock} to {questData::%{_quest}%::objLocks::%loop-index%}
+			if check | {_lock} is set | -> | hasCompletedObjective({_p}, {_quest}, {_lock}) is true |:
+				doNothing()
+			else:
+				set {_itemAmt} to getTrackedObjectiveStatus({_p}, {_quest}, "%loop-index%")
+				setPlayerObj({_p}, {_quest}, "%loop-index%", {_itemAmt})
+			delete {_lock}
+
+#= Gets the 'next' objective the player hasn't completed yet, AKA the first
+# one in the list of objectives where the requirement isn't currently met.
+function getCurrentObjective(p: player, quest: text) :: text:
+	if hasCompletedQuest({_p}, {_quest}) is true:
+		return "COMPLETED"
+	else if hasStartedQuest({_p}, {_quest}) is false:
+		return "<none>"
+	else:
+		loop {questData::%{_quest}%::objIndices::*}:
+			if hasCompletedObjective({_p}, "%{_quest}%", "%loop-value%") is false:
+				return loop-value
+		return "<none>"
+
+#= Forces a player's score in their current objective to its goal value, essentially
+# moving them forward in the quest's progression by 1 objective.
+function progressQuest(p: player, quest: text):
+	set {_current} to getCurrentObjective({_p}, {_quest})
+	setPlayerObj({_p}, {_quest}, {_current}, getQuestGoal({_quest}, {_current}))
+
+#= Sends a reminder to a player about their current objective.
+function sendQuestReminder(p: player, quest: text):
+	hasStartedQuest({_p}, {_quest}) is true
+	execute({_p}, "playsound block.note.chime master @p ~ ~ ~ 1 1")
+	if hasCompletedQuest({_p}, {_quest}) is true:
+		send "&6Quest &c%{_quest}%&6 complete!" to {_p}
+	else:
+		set {_current} to getCurrentObjective({_p}, {_quest})
+		send "&6OBJECTIVE: &c%getObjDisplay({_p}, {_quest}, {_current})%" to {_p}
+
+command /markquestitem:
+	permission: skript.admin
+	trigger:
+		set player's tool's lore to "%player's tool's lore%||&6**QUEST ITEM**"
+		send "&6Marked your held item as a quest item." to the player
+
+on packet event play_server_set_slot:
+	wait 1 tick
+	loop {quest::*}:
+		isQuestInProgress(player, loop-value) is true
+		updateFromTrackers(player, loop-value)
+on command:
+	"%command%" is "fq", "fabledquest" or "fabledquests"
+	updateFromTrackers(player, arguments)
+		
+		
+	
 
 
 
 
 #= Root command which gives feedback on quests
 command /fabledquest [<text="root">]:
-	permission: skript.admin
 	executable by: players
 	aliases: fabledquests, fq
 	trigger:
-		send ""
-		
-		if text-argument-1 is "root":
-			send "&c&m---==&c[ &6Quests &c]&m==---"
-			loop {quest::*}:
-				if hasStartedQuest(player, "%loop-index%") is true:
-					add "||&7%loop-value%||cmd:/fabledquest %loop-value%" to {_started::*}
-			json("%player%", "&cQuests Started: &7%{_started::*}%")
-			send "&cUse &7/fabledquest <quest>&c or click a quest name to check progress."
+		if hasStartedQuest(player, "A Change of Pace") is true:
+			send ""
 			
-		else if hasStartedQuest(player, text-argument-1) is true:
-			send "&c&m---==&c[ &6&lQuest Status:&6 %text-argument-1% &c]&m==---"
-			send "&6Started:&c %{quests::%player's UUID%::%text-argument-1%::startDate}%"
-			if hasCompletedQuest(player, text-argument-1) is true:
-				if {questData::%text-argument-1%::repeatTime} > 0 seconds:
-					send "&6Times Completed:&c %{quests::%player's UUID%::%text-argument-1%::completions}%"
-					send "&6Last Completed:&c %{quests::%player's UUID%::%text-argument-1%::completionDate}%"
-				else:
-					send "&6Completed:&c %{quests::%player's UUID%::%text-argument-1%::completionDate}%"
-				send "&6Reward(s):&c %uncolored getDisplayName({questData::%text-argument-1%::rewards::*})%"
-			else:
-				{questData::%text-argument-1%::displayMode} isn't "NONE"
-				loop {questData::%text-argument-1%::objIndices::*}:
-					set {_display} to {questData::%text-argument-1%::objDisplays::%loop-value%}
-					"%{_display}%" isn't "hide" or "false"
-					if check [{_goalTabSent} isn't set]->[{questData::%text-argument-1%::displayMode} is "ALL"]:
-						set {_goalTabSent} to true
-						send "&6&lGoals:"
-					
-					replace all "%%goal%%" in {_display} with "%getQuestGoal(text-argument-1, loop-value)%"
-					replace all "%%score%%" in {_display} with getPlayerObj(player, text-argument-1, loop-value)
-					
-					if "%getPlayerObj(player, text-argument-1, loop-value)%" is "%getQuestGoal(text-argument-1, loop-value)%":
-						{questData::%text-argument-1%::displayMode} is "ALL"
-						send "   &8◊ &6%{_display}% &c(Completed!)"
+			if text-argument-1 is "root":
+				send "&c&m---==&c[ &6Quests &c]&m==---"
+				loop {quest::*}:
+					if isQuestInProgress(player, "%loop-index%") is true:
+						add "||&7%loop-value%||cmd:/fabledquest %loop-value%" to {_started::*}
+					else if hasCompletedQuest(player, "%loop-index%") is true:
+						add "||&7%loop-value%||cmd:/fabledquest %loop-value%" to {_completed::*}
+				json("%player%", "&cActive Quests: &7%join {_started::*} with ""||&7, ""%")
+				if size of {_completed::*} > 0:
+					json("%player%", "&cQuests Completed: &7%join {_completed::*} with ""||&7, ""%")
+				send "&cUse &7/fabledquest <quest>&c or click a quest name to check progress."
+				
+			else if hasStartedQuest(player, text-argument-1) is true:
+				send "&c&m---==&c[ &6&lQuest Status:&6 %text-argument-1% &c]&m==---"
+				send "&6Started:&c %{quests::%player's UUID%::%text-argument-1%::startDate}%"
+				if hasCompletedQuest(player, text-argument-1) is true:
+					if {questData::%text-argument-1%::repeatTime} > 0 seconds:
+						send "&6Times Completed:&c %{quests::%player's UUID%::%text-argument-1%::completions}%"
+						send "&6Last Completed:&c %{quests::%player's UUID%::%text-argument-1%::completionDate}%"
 					else:
-						if {questData::%text-argument-1%::displayMode} is "AUTO":
-							send "&6Current Goal:&c %{_display}%"
+						send "&6Completed:&c %{quests::%player's UUID%::%text-argument-1%::completionDate}%"
+					if {questData::%text-argument-1%::rewards::*} isn't air:
+						send "&6Reward(s):&c %getQuestRewards(text-argument-1)%"
+				else:
+					{questData::%text-argument-1%::displayMode} isn't "NONE"
+					if {questData::%text-argument-1%::displayMode} is "GROUPED":
+						loop {questData::%text-argument-1%::displayGroups::*}:
+							set {_split::*} to loop-value split at ";"
+							listContains({_split::*}, getCurrentObjective(player, text-argument-1)) is true
+							set {_currentGroup::*} to {_split::*}
 							stop loop
+					else:
+						set {_currentGroup::*} to {questData::%text-argument-1%::objIndices::*}
+					loop {_currentGroup::*}:
+						set {_display} to "%getObjDisplay(player, text-argument-1, loop-value)%"
+						"%{_display}%" isn't "hide" or "false"
+						if check |{_goalTabSent} isn't set|->|{questData::%text-argument-1%::displayMode} is "ALL" or "GROUPED"|:
+							set {_goalTabSent} to true
+							send "&6&lGoals:"
+						
+						if hasCompletedObjective(player, text-argument-1, loop-value) is true:
+							{questData::%text-argument-1%::displayMode} is "ALL" or "GROUPED"
+							send "   &8◊ &6%{_display}% &c(Completed!)"
 						else:
-							send "   &8◊ &6%{_display}%"
+							if {questData::%text-argument-1%::displayMode} is "AUTO":
+								send "&6Current Goal:&c %{_display}%"
+								stop loop
+							else:
+								send "   &8◊ &6%{_display}%"
 
+			else:
+				send "&cYou have not started a quest titled '%text-argument-1%'."
+				
+			send ""
 		else:
-			send "&cYou have not started a quest titled '%text-argument-1%'."
-			
-		send ""
+			send "&cERROR: Access Denied."
