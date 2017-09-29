@@ -107,6 +107,16 @@ command /bestsellers <text> <text>:
 		else:
 			send "&cInvalid usage. Use /bestsellers (author|book) <name of author | book title>." to the player
 
+#command /fixbookstore:
+#	permission: skript.admin
+#	trigger:
+#		loop {bookstoreUUIDs::*}:
+#			loop {bookstoreGenres::%loop-value%::*}:
+#				set {bookstoreBackup::%loop-value-1%::%loop-index-2%} to {bookstore::%loop-value-1%::%loop-index-2%}
+#				loop 50 times:
+#					replace all """,%loop-number%""" in {bookstore::%loop-value-1%::%loop-index-2%} with ""","""
+				#replace all "u00" in {bookstore::%loop-value-1%::%loop-index-2%} with "\\u00"
+				#replace all "\n" in {bookstore::%loop-value-1%::%loop-index-2%} with "\\\\n"
 
 #= Root command which is used both to open the main menu and to open submenus from the main menu
 # Players can also open genre submenus directly by putting a genre name as the argument
@@ -138,7 +148,7 @@ command /bookstore [<text="main">]:
 			set slot 31 of current inventory of player to redstone block named "&cClose" with lore "&7Exit the bookstore"
 		
 		# This means they're opening a submenu
-		else if "%{bookGenres::*}%" contains "%arg-1%":
+		else if listContains({bookGenres::*}, arg-1) is true:
 			# Create a larger GUI for holding all of the books of that genre
 			open chest with 5 rows named "Official Bookstore: %arg-1%" to the player
 			set {_i} to 0
@@ -147,9 +157,15 @@ command /bookstore [<text="main">]:
 			loop {bookstoreUUIDs::*}:
 				loop {bookstoreGenres::%loop-value%::*}:
 					loop-value-2 is arg-1
-					set slot {_i} of current inventory of player to written book with custom nbt "%{bookstore::%loop-value-1%::%loop-index-2%}%"
+					#set {_item} to "%{bookstore::%loop-value-1%::%loop-index-2%}%"
+					#send "%uncolored {bookstore::%loop-value-1%::%loop-index-2%}%" to "Mr_Simba" parsed as player
+					#if "%player%" is "Mr_Simba":
+					#	give 1 of written book with custom NBT "%{_i}%" to the player
+					set slot {_i} of current inventory of player to written book with custom NBT "%{bookstore::%loop-value-1%::%loop-index-2%}%"
 					wait 1 tick
-					add "{display:{Lore:[""%lore of slot {_i} of current inventory of player%"",""&7Costs %{bookstorePrice::%loop-value-1%::%loop-index-2%}% silver""]}}" to NBT of slot {_i} of current inventory of player
+					set {_author} to tag "author" of NBT of slot {_i} of current inventory of player
+					set {_author} to {name::%{bookstoreUUIDs::%{_author}%}%}
+					add "{author:""%{_author}%"",display:{Lore:[""&7by %{_author}%"",""&7Costs %{bookstorePrice::%loop-value-1%::%loop-index-2%}% silver""]}}" to NBT of slot {_i} of current inventory of player
 					add 1 to {_i}
 					
 			# If we found no saved books for that genre, bail out
