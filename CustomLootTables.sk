@@ -43,15 +43,14 @@ on right click on chest:
 #= Adding special drops to minibosses
 on death of evoker:
 	isASurvivalWorld(victim's world) is true
-	drop 1 of {item.DustyEmerald} at the victim
+	add 1 of {item.DustyEmerald} to drops
 on death of elder guardian:
 	isASurvivalWorld(victim's world) is true
-	drop 1 of {item.TwinklingSeaCrystals} at the victim
+	add 1 of {item.TwinklingSeaCrystals} to drops
 on death of wither:
 	isASurvivalWorld(victim's world) is true
-	set {_loc} to victim's location
 	wait 0.5 seconds
-	drop 1 of {item.WitheredHeart} at {_loc}
+	drop 1 of {item.WitheredHeart} at victim
 
 
 #= Dusty Emeralds were updated at one point with a new lore
