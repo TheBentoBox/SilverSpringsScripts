@@ -1,0 +1,19 @@
+on script load:
+	import "org.bukkit.attribute.Attribute"
+
+function getAttribute(e: entity, attribute: text) :: number:
+	set {_attrObject} to {Attribute}.valueOf("%{_attribute}%")
+	set {_attrInstance} to {_e}.getAttribute({_attrObject})
+	return {_attrInstance}.getValue()
+
+function setAttribute(e: entity, attribute: text, newValue: number):
+	set {_attrObject} to {Attribute}.valueOf("%{_attribute}%")
+	set {_attrInstance} to {_e}.getAttribute({_attrObject})
+	{_attrInstance}.setBaseValue({_newValue})
+
+command /attr <text>:
+	trigger:
+		if player's target is set:
+			send "%getAttribute(player's target, arg-1)%"
+		else:
+			send "%getAttribute(player, arg-1)%"
