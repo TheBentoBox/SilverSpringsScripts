@@ -85,7 +85,7 @@ on inventory click:
 			set {_clickAmt} to amount of clicked item
 			
 			# If it's a matching item, and that's what we're splitting into, do the split
-			if check [{_splitIntoAir} is false] -> [1 of {_item} is 1 of clicked item]:
+			if check |{_splitIntoAir} is false| -> |1 of {_item} is 1 of clicked item|:
 				set {_deposit} to {_evenSplitAmt}
 				if {_deposit} + {_loopAmt} > {_max}:
 					set {_deposit} to {_max} - {_loopAmt}
@@ -95,7 +95,7 @@ on inventory click:
 				
 			# Otherwise, if the item isn't an empty space, hard stop
 			# There's no way to evenly split over a different item
-			else if check [{_splitIntoAir} is true] -> [{_item} is air]:
+			else if check |{_splitIntoAir} is true| -> |{_item} is air|:
 				set slot loop-number of current inventory of player to {_evenSplitAmt} of clicked item
 				set clicked item to {_clickAmt} - {_evenSplitAmt} of clicked item
 			

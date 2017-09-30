@@ -43,7 +43,7 @@ on tool break:
 
 #= Allow players to hear their own swapping sound
 on offhand switch:
-	if check [player's tool is air]->[player's offhand tool is air]:
+	if check |player's tool is air|->|player's offhand tool is air|:
 		stop
 	playsound("item.armor.equip_generic", "player", player, 1, 1, "%player%")
 
@@ -169,7 +169,7 @@ on place of redstone wire:
 
 #= Repeater change tick
 on right click on repeater:
-	if check [player's tool is any pickaxe]->[player's offhand tool is air]->[player can build at event-location]:
+	if check |player's tool is any pickaxe|->|player's offhand tool is air|->|player can build at event-location|:
 		stop
 	playsound("block.comparator.click", "block", event-location, 0.5, 0)
 
