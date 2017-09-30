@@ -6,6 +6,14 @@
 command /elytramode [<player=%player%>]:
 	aliases: elytra, e
 	trigger:
+		# Disallow in Soulthief
+		if "%player's world%" is "Soulthief":
+			send "&cYou can't do that here." to the player
+			stop
+		else if "%region at player%" contains "parkour":
+			send "&cYou can't do that here." to the player
+			stop
+		
 		# Get an appropriate greeting for the messages below ("You have x" vs. "%player% has x")
 		if player-argument is player:
 			set {_target} to "You have"
@@ -80,9 +88,12 @@ command /elytraend <player>:
 
 #= Core event -- cancels the toggling off of elytra states for people with the mode active
 on elytra fly toggle:
-	elytra fly state of event-entity is true
-	{elytraModeActive::%event-entity's uuid%} is true
-	cancel event
+	if elytra fly state of event-entity is false:
+		"%event-entity's world%" is "Soulthief"
+		cancel event
+	else:
+		{elytraModeActive::%event-entity's uuid%} is true
+		cancel event
 
 #= Prevent players with elytra mode active from having their elytras damaged
 # Secondary, but important
@@ -116,6 +127,8 @@ every 1 second:
 		if {swimming::%loop-player's uuid%} is true:
 			delete {elytraModeActive::%loop-player's uuid%}
 		else if flight mode of loop-player is true:
+			delete {elytraModeActive::%loop-player's uuid%}
+		else if elytra flight state of loop-player is false:
 			delete {elytraModeActive::%loop-player's uuid%}
 		
 		# They're safe to use elytramode, so...
