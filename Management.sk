@@ -18,6 +18,10 @@ on script load:
 #= Tag entities with their spawn reason so it can be detected later
 on spawn:
 	setKeyValueTag(event-entity, "SpawnReason", "%spawn reason%")
+#= Also clear drops of mobs with a certain tag so we can be sure certain ones won't drop anything
+on death of living entity:
+	hasTag(victim, "ClearDrops") is true
+	clear drops
 
 
 #= Control automated restarts
@@ -81,27 +85,31 @@ on command:
 	else:
 		saveInv(player)
 	
-on gamemode change:
-	wait 1 tick
-	player's gamemode is creative
-	saveInv(player)
+#on gamemode change:
+#	wait 1 tick
+#	player's gamemode is creative
+#	saveInv(player)
 
 
 #= Keep track of when players were last damaged
 # Used to limit command usage so people can't cheese
 on script load:
 	delete {lastDamageTime::*}
+	delete {lastAttackTime::*}
 on damage of player:
 	set {lastDamageTime::%victim's uuid%} to now
+on damage:
+	attacker is a player
+	set {lastAttackTime::%attacker's uuid%} to now
 # Catch command execution to save people from using overly cheesy commands
 on command:
 	{lastDamageTime::%player's uuid%} is set
 	if "%command%" is "afk":
 		if player is afk:
 			stop
-		difference between {lastDamageTime::%player's uuid%} and now < 3 seconds
-		send "&cYou can't AFK since you've taken damage recently." to the player
-		cancel event
+		else if difference between {lastDamageTime::%player's uuid%} and now < 3 seconds:
+			send "&cYou can't AFK since you've taken damage recently." to the player
+			cancel event
 
 
 #= Keep track of last chat message
@@ -109,8 +117,6 @@ on command:
 # Stored 1 tick in future so other on chat events won't accidentally check this chat event
 on script load:
 	delete {lastChatMessage::*}
-on quit:
-	delete {lastChatMessage::%player's uuid%}
 on chat:
 	player doesn't have permission "skript.admin"
 	if {lastChatMessage::%player's uuid%} isn't set:
@@ -129,7 +135,7 @@ command /warpalias <text> <text>:
 	usage: /warpalias <warp to add alias for> <new alias>
 	trigger:
 		# Ensure that the warp even exists
-		if file existence of "plugins/Essentials/warps/%arg-1%.yml" is true:
+		if file "plugins/Essentials/warps/%arg-1%.yml" exists:
 			set {warpAliases::%arg-2%} to arg-1
 			send "&6Set &c%arg-2%&6 as an alias for warp &c%arg-1%&6." to the command sender
 		else:
@@ -137,7 +143,7 @@ command /warpalias <text> <text>:
 
 on command:
 	"%command%" is "warp"
-	file existence of "plugins/Essentials/warps/%arguments%.yml" is false
+	file "plugins/Essentials/warps/%arguments%.yml" doesn't exist
 	{warpAliases::%arguments%} is set
 	cancel event
 	make player execute "warp %{warpAliases::%arguments%}%"
@@ -194,7 +200,7 @@ command /nbt [<text="get">] [<text="">] [<text="">]:
 	trigger:
 		# Send an error so they know it doesn't think they're looking at something
 		# (Sometimes it can feel like somethings you're target but you're not actually hovering its hitbox)
-		if check [player's target isn't set]->[player's tool is air]:
+		if check |player's target isn't set|->|player's tool is air|:
 			"%text-argument-1%%text-argument-2%%text-argument-3%" isn't "get"
 			send "&cNo target and no held item." to the player
 			stop
@@ -207,7 +213,7 @@ command /nbt [<text="get">] [<text="">] [<text="">]:
 			set {_nbt} to nbt of player's tool
 		
 		# If the first argument is "get", retrieve the entity's NBT (or a specific tag if one is asked for)
-		if check [text-argument-1 is "get"]->[{_nbt} is set]:
+		if check |text-argument-1 is "get"|->|{_nbt} is set|:
 			# If no arg is given, just send all of its NBT
 			if text-argument-2 is "":
 				send "&6NBT of %{_targ}%:&f %{_nbt}%" to the player
@@ -223,7 +229,7 @@ command /nbt [<text="get">] [<text="">] [<text="">]:
 		
 		# If it's "set", set tag text-argument-2 to value text-argument-3
 		else if text-argument-1 is "set":
-			if check [text-argument-2 isn't ""]->[text-argument-3 isn't ""]:
+			if check |text-argument-2 isn't ""|->|text-argument-3 isn't ""|:
 				if {_targ} is type of player's tool:
 					add "{%text-argument-2%:%text-argument-3%}" to nbt of player's tool
 				else:
@@ -242,7 +248,7 @@ command /nbt [<text="get">] [<text="">] [<text="">]:
 		
 		else:
 			send "&cUsage is /nbt [get|set|add] [values] while looking at an entity:" to the player
-			send "&cget [tag]:&7 Retuns the value of 'tag', or all NBT if a tag isn't provided." to the player
+			send "&cget [tag|:&7 Retuns the value of 'tag', or all NBT if a tag isn't provided." to the player
 			send "&cset <tag> <value>:&7 Sets 'tag' to 'value' on the target." to the player
 			send "&cadd <nbt>:&7 Adds everything after 'add' as NBT to the target, curly braces not required. e.g. /nbt add Health:3, NoAI:1, Silent:1" to the player
 			stop
@@ -369,6 +375,16 @@ command /checkwarp [<text="owner">] <text>:
 			else:
 				send "&cNo player currently named %arg-2% has played here. They may have changed their name, which you can check at https://namemc.com/." to the player
 
+# Add a region naming convention to force people to warp
+on region enter:
+	"%region%" contains "ForceWarp"
+	player's gamemode is survival or adventure
+	set {_rg} to "%region%"
+	set {_warpParse::*} to {_rg} parsed as "ForceWarp%text%"
+	add "{FallDistance:0}" to NBT of player
+	player command "warp %{_warpParse::1}%"
+
+
 
 #= Transfer BlockEntityTag info to placed chests for admins
 on place of chest or trapped chest:
@@ -382,3 +398,84 @@ on place of chest or trapped chest:
 	wait 1 tick
 	block at event-location is chest or trapped chest
 	add "%{_t}%" to nbt of block at event-location
+
+
+#= Allows searching through all players for names that contain a certain filter term.
+command /searchplayers <text> [<integer=1>]:
+	permission: skript.mod
+	usage: /searchplayers <filter> [<page number>]
+	trigger:
+		loop {name::*}:
+			"%loop-value%" contains text-argument
+			add 1 to {_resultCount}
+			add "&c%{_resultCount}%. &6%loop-value% (&e%loop-index%&6)" to {_results::*}
+		set {_page} to clamp(integer-argument, 1, ceil(size of {_results::*}/10))
+		if size of {_results::*} > 0:
+			send "&6Player Names Containing '&c%text-argument%&6' (%{_page}%/%ceil(size of {_results::*}/10)%):"
+			loop page {_page} of {_results::*} with 10 lines:
+				send "%loop-value%"
+		else:
+			send "&cNo players found with name containing '%text-argument%'."
+
+
+#= Always make sure people are in the correct gamemode when entering a survival world
+on "org.bukkit.event.player.PlayerTeleportEvent":
+	event isn't cancelled
+	check |event.getPlayer()'s gamemode is adventure or spectator| -> |event.getTo().getWorld().getName() isn't "Soulthief"| -> |event.getFrom().getWorld().getName() is "Soulthief"|
+	event.getPlayer().setGameMode({GameMode}.SURVIVAL!);
+
+
+#= Attempted patch for 1.12 dupe bug
+on script load:
+	delete {lastSetSlot::*}
+	delete {lastSlotUse::*}
+on packet event play_server_set_slot:
+	{lastSlotUse::%player%} isn't set
+	set {lastSetSlot::%player%} to now
+	set {_now} to {lastSetSlot::%player%}
+	wait 1 second
+	{lastSetSlot::%player%} is {_now}
+	delete {lastSetSlot::%player%}
+on pickup:
+	if {lastSetSlot::%player%} is set:
+		cancel event
+	else:
+		set {lastSlotUse::%player%} to now
+		set {_now} to {lastSlotUse::%player%}
+		wait 1 tick
+		{lastSlotUse::%player%} is {_now}
+		delete {lastSlotUse::%player%}
+#on pickup:
+#	tag "Age" of NBT of dropped item is 40
+#	set {_item} to 1 of first element of items within entity dropped item
+#	set {_numInv} to number of {_item} in player's inventory
+#	set {_numItem} to amount of first element of items within entity dropped item
+#	set {_total} to ({_numInv} + {_numItem})
+#	wait 2 ticks
+#	set {_diff} to number of {_item} in player's inventory - {_total}
+#	if {_diff} > 0:
+#		remove {_diff} of {_item} from player's inventory
+
+
+#= Force people to be in adventure mode in spawn
+function fixGamemode(p: player):
+	if "%{_p}'s world%" is "spawn":
+		if "%region at {_p}%" doesn't contain "forcesurvival", "market", "shop", "dorm", "arcade", "fabledarmory", "metamorphictree" or "spleef":
+			{_p}'s gamemode is survival
+			set {_p}'s gamemode to adventure
+		else if {_p}'s gamemode is adventure:
+			set {_p}'s gamemode to survival
+	else if isASurvivalWorld({_p}'s world) is true:
+		{_p}'s gamemode is adventure
+		set {_p}'s gamemode to survival
+on teleport:
+	wait 2 ticks
+	fixGamemode(player)
+on region enter:
+	wait 2 ticks
+	fixGamemode(player)
+on region exit:
+	wait 2 ticks
+	fixGamemode(player)
+on join:
+	fixGamemode(player)
