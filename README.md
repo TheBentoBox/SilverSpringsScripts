@@ -1,5 +1,4 @@
-![Silver Springs Survival](https://i.imgur.com/4R4VHTV.png)
-# Scripts
+# ![Silver Springs Survival](https://i.imgur.com/4R4VHTV.png)
 
 A repository containing some of the scripts used on my public Minecraft server, Silver Springs Survival. All scripts in this repository are written solely by me unless noted otherwise.
 
