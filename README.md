@@ -1,4 +1,5 @@
-# Silver Springs Scripts
+![Silver Springs Survival](https://i.imgur.com/4R4VHTV.png)
+# Scripts
 
 A repository containing some of the scripts used on my public Minecraft server, Silver Springs Survival. All scripts in this repository are written solely by me unless noted otherwise.
 
@@ -11,10 +12,9 @@ Scripts are loaded onto the server and parsed using the plugin [Skript](https://
 - Skellett
 - SkMorkaz
 - SkQuery
-- skRayFall
+- skript-mirror
 - SkStuff
 - TuSKe
-- Vixio
 - WolvSK
 
 Not all of these addons are used in all or any scripts in this repository, but all are currently installed on Silver Springs Survival. Scripts contain various custom features that are used by staff or all players. Not all scripts used on the server are listed here (some contain private information that should not be accessible to players by any means, including an open source repository). 
